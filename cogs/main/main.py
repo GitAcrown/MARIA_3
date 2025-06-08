@@ -608,6 +608,8 @@ class Main(commands.Cog):
                     response = '\n-# ' + '\n-# '.join(headers[::-1]) + '\n' + response
 
                 response_type = self.get_response_type(message)
+                if len(response) > 2000:
+                    response = response[:1997] + '...'
                 
                 if response_type == 'reply':
                     message = await message.reply(response, mention_author=False)
@@ -643,6 +645,9 @@ class Main(commands.Cog):
                     headers.extend(list(set([trm.header for trm in tools if trm.header])))
                     if headers:
                         response = '\n-# ' + '\n-# '.join(headers[::-1]) + '\n' + response
+
+                    if len(response) > 2000:
+                        response = response[:1997] + '...'
 
                     last_message = after.channel.last_message
                     if last_message == after:
