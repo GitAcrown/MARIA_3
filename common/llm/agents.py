@@ -72,10 +72,10 @@ Tu dois résumer les messages fournis depuis un salon Discord en un message asse
 # RÉPONSE
 Tu dois répondre par un résumé court, concis et précis des messages. Si tu mentionnes des utilisateurs, tu dois les citer par leur pseudonyme et leur ID (entre []).
 """
-SUMMARY_TEMPERATURE = 0.25
+SUMMARY_TEMPERATURE = 0.1
 SUMMARY_COMPLETION_MODEL = 'gpt-4.1-nano'
-SUMMARY_MAX_COMPLETION_TOKENS = 512 * 2 # 2k tokens
-SUMMARY_EVERY_N_TOKENS = 512 * 16 # 8k tokens
+SUMMARY_MAX_COMPLETION_TOKENS = 512 
+SUMMARY_EVERY_N_TOKENS = 512 * 4 # 2k tokens
 
 # Video analysis
 TEMP_DIR = Path('./temp')
