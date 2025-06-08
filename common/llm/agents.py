@@ -43,7 +43,8 @@ REPONDRE 'YES' QUAND :
 REPONDRE 'NO' QUAND :
 - Dans tous les cas où y'a un doute, même minime.
 - Les messages courts sans question comme les remerciements, salutations, réactions à un autre message, etc.
-- Les messages qui ne semblent pas être adressés à soi, ou qui mentionnent un autre utilisateur/bot/application.
+- Les messages qui ne semblent pas être adressés à MARIA, ou qui mentionnent un autre utilisateur/bot/application.
+- Les messages de "réaction" à la réponse, comme des emojis ou des onomatopées.
 
 FORMAT DE L'HISTORIQUE :
 - Les messages sont fournis dans l'ordre chronologique, du plus ancien au plus récent.
