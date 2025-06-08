@@ -675,7 +675,9 @@ class Main(commands.Cog):
         bot_color = interaction.guild.me.color
         session = await self.get_guild_chat_session(interaction.guild)
         config = self.get_guild_config(interaction.guild)
-        embed = discord.Embed(title=bot_name, description="Un assistant intelligent pour Discord", color=bot_color)
+        desc = """*Une assistante intelligente tricéphale pour Discord.*
+        *Conçue pour répondre à des questions, effectuer des recherches sur le web, analyser des vidéos et des images, tout ça grâce à un système utilisant simultanément trois agents IA.*"""
+        embed = discord.Embed(title=bot_name, description=desc, color=bot_color)
         embed.add_field(name="Taille du contexte", value=f"{sum(len(g.total_token_count) for g in session.agent._context)} tokens", inline=True)
         embed.add_field(name="Durée d'attention", value=f"{config['attention_span']} secondes", inline=True)
         embed.add_field(name="Résumé automatique", value=f"{'Activé' if config['enable_summary'] else 'Désactivé'}", inline=True)
