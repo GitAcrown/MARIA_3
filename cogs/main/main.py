@@ -1,4 +1,3 @@
-import asyncio
 import io
 import logging
 import os
@@ -50,8 +49,6 @@ Tu peux éventuellement mentionner un utilisateur en mettant son ID de cette man
 
 STATUS_UPDATE_INTERVAL = 30 #MINUTES
 ACTIVITY_MAX_MESSAGES = 10
-EMOJI_USED_FOR_REPLY = '❓'
-EMOJI_MESSAGE_MAX_AGE = 30 #SECONDS
 SUMMARY_MAX_AGE = timedelta(days=30)
 
 # PARAMÈTRES =================================================================
@@ -249,7 +246,6 @@ class Main(commands.Cog):
                 'answer_mode': 'AUTO',
                 'attention_span': 30, # En secondes
                 'activity_threshold': 10, # Nombre de messages par minute
-                'emoji_mention_reply': True, # Proposer une réponse via emoji si mentionné
                 'enable_summary': True
             },
             insert_on_reconnect=True
@@ -472,17 +468,11 @@ class Main(commands.Cog):
         
         emoji_reply = bool(config['emoji_mention_reply'])
         if config['answer_mode'] == 'GREEDY' or emoji_reply: # SEULEMENT mode GREEDY = On répond aussi si le bot est mentionné indirectement (mention de nom ou display_name en regex)
-            detected = False
             s = re.search(rf'\b{re.escape(bot.user.name.lower())}\b', message.content.lower())
             if s:
-                detected = True
+                return True
             s = re.search(rf'\b{re.escape(bot.user.display_name.lower())}\b', message.content.lower())
             if s:
-                detected = True
-            if detected:
-                if emoji_reply:
-                    await message.add_reaction(EMOJI_USED_FOR_REPLY)
-                    return False
                 return True
             return False
         
@@ -680,57 +670,6 @@ class Main(commands.Cog):
         summ_agent = self.get_summary_agent(message.channel)
         summ_agent.try_removing_message(message)
 
-    @commands.Cog.listener()
-    async def on_reaction_add(self, reaction: discord.Reaction, user: discord.User):
-        if user == self.bot.user:
-            return
-        
-        if reaction.message.guild is None:
-            return
-
-        config = self.get_guild_config(reaction.message.guild)
-        if not bool(config['emoji_mention_reply']):
-            return
-
-        if reaction.message.created_at + timedelta(seconds=EMOJI_MESSAGE_MAX_AGE) < datetime.now():
-            await reaction.message.remove_reaction(EMOJI_USED_FOR_REPLY, reaction.message.guild.me)
-            return
-        
-        if reaction.emoji == EMOJI_USED_FOR_REPLY:
-            if reaction.message.author == self.bot.user:
-                return
-            if not any(r.me for r in reaction.message.reactions):
-                return
-            await reaction.message.remove_reaction(EMOJI_USED_FOR_REPLY, reaction.message.guild.me)
-
-            async with reaction.message.channel.typing():
-                session = await self.get_guild_chat_session(reaction.message.guild)
-                group = await session.append_user_message(reaction.message)
-                response = await session.get_answer()
-                self.register_attention(reaction.message)
-
-                headers = []
-                if group.search_for_message_components(MetadataTextComponent, lambda c: 'AUDIO' in c.data['text']):
-                    headers.append("Transcription audio")
-                if group.search_for_message_components(MetadataTextComponent, lambda c: 'VIDEO' in c.data['text']):
-                    headers.append("Analyse vidéo")
-
-                tools : list[ToolResponseMessage] = group.get_messages(lambda m: isinstance(m, ToolResponseMessage))
-                headers.extend(list(set([trm.header for trm in tools if trm.header])))
-                if headers:
-                    response = '\n-# ' + '\n-# '.join(headers[::-1]) + '\n' + response
-
-                if len(response) > 2000:
-                    response = response[:1997] + '...'
-
-                last_message = reaction.message.channel.last_message
-                if last_message == reaction.message:
-                    message = await reaction.message.channel.send(response, mention_author=False)
-                else:
-                    message = await reaction.message.reply(response, mention_author=False)
-                await self.handle_summarization(message, type='assistant')
-                group.last_completion.message = message
-
     # COMMANDES >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
     @app_commands.command(name='info')
@@ -745,7 +684,6 @@ class Main(commands.Cog):
         embed = discord.Embed(title=bot_name, description=desc, color=bot_color)
         embed.add_field(name="Taille du contexte", value=f"{sum(len(g.total_token_count) for g in session.agent._context)} tokens", inline=True)
         embed.add_field(name="Durée d'attention", value=f"{config['attention_span']} secondes", inline=True)
-        embed.add_field(name="Réponse via emoji", value=f"{'Activé' if config['emoji_mention_reply'] else 'Désactivé'}", inline=True)
         embed.add_field(name="Résumé automatique", value=f"{'Activé' if config['enable_summary'] else 'Désactivé'}", inline=True)
         embed.add_field(name="Mode de réponse", value=f"{ANSWER_MODES[config['answer_mode']]}", inline=False)
         embed.set_thumbnail(url=self.bot.user.display_avatar.url)
@@ -785,18 +723,6 @@ class Main(commands.Cog):
         """
         self.set_guild_config(interaction.guild, activity_threshold=threshold)
         await interaction.response.send_message(f"**SEUIL D'ACTIVITÉ MODIFIÉ** ⸱ Réglé sur *{threshold}* messages par minute", ephemeral=True)
-
-    @settings_group.command(name='emoji-reply')
-    async def emoji_mention_reply(self, interaction: Interaction, toggle: bool):
-        """Définit si le bot doit proposer une réponse via emoji si mentionné.
-        
-        :param toggle: True pour activer, False pour désactiver
-        """
-        self.set_guild_config(interaction.guild, emoji_mention_reply=toggle)
-        if toggle:
-            await interaction.response.send_message(f"**RÉPONSE VIA ÉMOJI** ⸱ Le bot proposera une réponse via emoji si mentionné.", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"**RÉPONSE VIA ÉMOJI** ⸱ Le bot ne proposera plus de réponse via emoji si mentionné.", ephemeral=True)
 
     @settings_group.command(name='enable-summary')
     async def enable_summary(self, interaction: Interaction, toggle: bool):
