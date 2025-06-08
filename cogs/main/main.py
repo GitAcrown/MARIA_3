@@ -375,7 +375,7 @@ class Main(commands.Cog):
             result = float(ne.evaluate(expression))
             if result.is_integer():
                 result = int(result)
-            return ToolResponseMessage({'result': result}, tool_call.data['id'], header=f"**Calcul de l'expression** `{expression}`")
+            return ToolResponseMessage({'result': result}, tool_call.data['id'], header=f"Calcul de l'expression `{expression}`")
         except Exception as e:
             return ToolResponseMessage({'error': str(e)}, tool_call.data['id'])
         
@@ -394,7 +394,7 @@ class Main(commands.Cog):
             return ToolResponseMessage({'error': 'Il faut fournir au moins un critère de recherche (mot-clés, auteurs, date approximative)'}, tool_call.data['id'])
         authors = [guild.get_member(author_id) for author_id in author_ids]
         summaries = self.search_summary(guild, keywords=keywords, authors=authors, approx_time=approx_time)
-        return ToolResponseMessage({'summaries': [s.to_enriched_dict(guild) for s in summaries]}, tool_call.data['id'], header="**Consultation des discussions passées**")
+        return ToolResponseMessage({'summaries': [s.to_enriched_dict(guild) for s in summaries]}, tool_call.data['id'], header="Consultation des discussions passées")
 
     # Response Type Detection ==================================================
 
@@ -600,9 +600,9 @@ class Main(commands.Cog):
 
                 headers = []
                 if group.search_for_message_components(lambda c: isinstance(c, MetadataTextComponent) and 'AUDIO' in c.data['text']):
-                    headers.append("**Transcription de l'audio**")
+                    headers.append("Transcription de l'audio")
                 if group.search_for_message_components(lambda c: isinstance(c, MetadataTextComponent) and 'VIDEO' in c.data['text']):
-                    headers.append("**Analyse de la vidéo**")
+                    headers.append("Analyse de la vidéo")
 
                 tools : list[ToolResponseMessage] = group.get_messages(lambda m: isinstance(m, ToolResponseMessage))
                 headers.extend(list(set([trm.header for trm in tools if trm.header])))
@@ -641,9 +641,9 @@ class Main(commands.Cog):
 
                     headers = []
                     if group.search_for_message_components(lambda c: isinstance(c, MetadataTextComponent) and 'AUDIO' in c.data['text']):
-                        headers.append("**Transcription de l'audio**")
+                        headers.append("Transcription de l'audio")
                     if group.search_for_message_components(lambda c: isinstance(c, MetadataTextComponent) and 'VIDEO' in c.data['text']):
-                        headers.append("**Analyse de la vidéo**")
+                        headers.append("Analyse de la vidéo")
 
                     tools : list[ToolResponseMessage] = group.get_messages(lambda m: isinstance(m, ToolResponseMessage))
                     headers.extend(list(set([trm.header for trm in tools if trm.header])))

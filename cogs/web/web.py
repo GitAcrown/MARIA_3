@@ -112,7 +112,7 @@ class Web(commands.Cog):
             results = []
             for r in self.search_web_pages(query, lang, num):
                 results.append({'title': r.title, 'url': r.url, 'description': r.description}) #type: ignore
-            return ToolResponseMessage({'results': results}, tool_call.data['id'], header=f"**Recherche web pour** '*{query}*'")
+            return ToolResponseMessage({'results': results}, tool_call.data['id'], header=f"Recherche web pour \"{query}\"")
         except Exception as e:
             return ToolResponseMessage({'error': str(e)}, tool_call.data['id'])
         
@@ -152,7 +152,7 @@ class Web(commands.Cog):
         
         # On affiche dans le header que le nom de domaine mais on markdown l'url
         header_url = f'[{url.split("//")[-1].split("/")[0]}](<{url}>)'
-        return ToolResponseMessage({'content': chunks[index], 'chunk_index': index, 'total_chunks': len(chunks)}, tool_call.data['id'], header=f"**Consultation de** {header_url}")
+        return ToolResponseMessage({'content': chunks[index], 'chunk_index': index, 'total_chunks': len(chunks)}, tool_call.data['id'], header=f"Lecture de {header_url}")
     
     # GESTION DU NAVIGATEUR -----------------------------------------------------
     
