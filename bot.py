@@ -49,8 +49,7 @@ async def main():
     bot = commands.Bot(
         command_prefix="m!",
         intents=intents,
-        help_command=None,
-        version='3.0 (Preview)'
+        help_command=None
     )
     bot.config = dotenv_values('.env') # type: ignore
     

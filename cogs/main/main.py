@@ -681,7 +681,7 @@ class Main(commands.Cog):
         embed.add_field(name="Mode de réponse", value=f"{ANSWER_MODES[config['answer_mode']]}", inline=True)
         embed.add_field(name="Résumé automatique", value=f"{'Activé' if config['enable_summary'] else 'Désactivé'}", inline=True)
         embed.set_thumbnail(url=self.bot.user.display_avatar.url)
-        embed.set_footer(text=f"Version {self.bot.version} • Utilisez /settings pour configurer le bot.")
+        embed.set_footer(text=f"Utilisez /settings pour configurer le bot.")
         await interaction.response.send_message(embed=embed)
         
     settings_group = app_commands.Group(name='settings', description="Paramètres généraux", default_permissions=discord.Permissions(manage_messages=True))
