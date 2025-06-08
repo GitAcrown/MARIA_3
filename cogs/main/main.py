@@ -204,7 +204,7 @@ class StatusUpdaterAgent:
         self.model = "gpt-4.1-nano"
         self.system_prompt = """
         Invente un seul petit message de statut mignon et marrant pour un bot Discord sans emojis. Il doit être très court, concis (max. 32 caractères) et en français.
-        Il doit être en rapport avec le bot et son activité (Chatbot IA).
+        Il doit être en rapport avec le bot et son activité (une assistante et chatbot IA). Tu te genre au féminin.
         """
 
     class MessageStatus(BaseModel):
