@@ -569,7 +569,7 @@ class MonitorAgent(GPTAgent):
             elif message.author.bot:
                 messages.append(AssistantMessage(TextComponent(f"APP/BOT: {message.clean_content}")))
             else:
-                messages.append(UserMessage.from_discord_message(message))
+                messages.append(UserMessage.from_discord_message(message, include_attachments=False))
         return MessageGroup(messages)
 
     # Complétion ----------------------------------------------------
@@ -590,7 +590,7 @@ class MonitorAgent(GPTAgent):
         context = self._create_from_discord_history(bot_user, history)
         # On insère le dernier message en le marquant pour détecter la réponse
         # Utilisation de la méthode existante avec le format personnalisé
-        marked_message = UserMessage.from_discord_message(message, context_format='<!> [{message.id}] {message.author.name} ({message.author.id})')
+        marked_message = UserMessage.from_discord_message(message, context_format='<!> [{message.id}] {message.author.name} ({message.author.id})', include_attachments=False)
         context.append_messages(marked_message)
         
         # On lance une complétion avec parsing
@@ -660,7 +660,7 @@ class SummaryAgent(GPTAgent):
 
     def add_user_message(self, message: discord.Message) -> None:
         """Ajoute un message d'utilisateur à l'historique."""
-        self._history.append(UserMessage.from_discord_message(message))
+        self._history.append(UserMessage.from_discord_message(message, include_attachments=False))
     
     def add_assistant_message(self, message: discord.Message, is_self: bool = False) -> None:
         """Ajoute un message de l'assistant à l'historique."""
@@ -703,11 +703,6 @@ class SummaryAgent(GPTAgent):
         history = self.get_history()
         if not history:
             return None 
-        
-        # On retire les images
-        history = [m for m in history if not m.contains_image]
-        if not history:
-            return None
         
         # On lance une complétion
         payload = [self.dev_prompt.payload] + [m.payload for m in history]

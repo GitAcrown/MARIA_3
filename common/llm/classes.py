@@ -272,7 +272,11 @@ class UserMessage(ContextMessage):
         return f"<UserMessage components={self.components} attachments={self.attachments}>"
 
     @classmethod
-    def from_discord_message(cls, message: discord.Message, context_format: str = '[{message.id}] {message.author.name} ({message.author.id})') -> 'UserMessage':
+    def from_discord_message(cls, message: discord.Message,
+                             context_format: str = '[{message.id}] {message.author.name} ({message.author.id})',
+                             include_embeds: bool = True,
+                             include_attachments: bool = True,
+                             include_stickers: bool = True) -> 'UserMessage':
         components = []
         attachments = []
             
@@ -288,29 +292,32 @@ class UserMessage(ContextMessage):
                     components.append(ImageURLComponent(cleanurl, detail='auto'))
             
         # Embeds
-        for embed in message.embeds:
-            components.append(MetadataTextComponent('EMBED', title=embed.title, description=embed.description, url=embed.url))
-            if embed.image and embed.image.url:
-                components.append(ImageURLComponent(embed.image.url, detail='high'))
-            if embed.thumbnail and embed.thumbnail.url:
-                components.append(ImageURLComponent(embed.thumbnail.url, detail='low'))
+        if include_embeds:
+            for embed in message.embeds:
+                components.append(MetadataTextComponent('EMBED', title=embed.title, description=embed.description, url=embed.url))
+                if embed.image and embed.image.url:
+                    components.append(ImageURLComponent(embed.image.url, detail='high'))
+                if embed.thumbnail and embed.thumbnail.url:
+                    components.append(ImageURLComponent(embed.thumbnail.url, detail='low'))
                 
         # Attachments
-        for attachment in message.attachments:
-            if attachment.content_type:
-                if attachment.content_type.startswith('image/'):
-                    components.append(ImageURLComponent(attachment.url, detail='auto'))
-                elif attachment.content_type.startswith('audio/'):
-                    attachments.append(AudioAttachment(attachment))
-                elif attachment.content_type.startswith('video/'):
-                    attachments.append(VideoAttachment(attachment))
-                # elif attachment.content_type.startswith('text/'):
-                    # attachments.append(TextFileAttachment(attachment))
+        if include_attachments:
+            for attachment in message.attachments:
+                if attachment.content_type:
+                    if attachment.content_type.startswith('image/'):
+                        components.append(ImageURLComponent(attachment.url, detail='auto'))
+                    elif attachment.content_type.startswith('audio/'):
+                        attachments.append(AudioAttachment(attachment))
+                    elif attachment.content_type.startswith('video/'):
+                        attachments.append(VideoAttachment(attachment))
+                    # elif attachment.content_type.startswith('text/'):
+                        # attachments.append(TextFileAttachment(attachment))
             
         # Stickers
-        for sticker in message.stickers:
-            if sticker.url:
-                components.append(ImageURLComponent(sticker.url, detail='auto'))
+        if include_stickers:
+            for sticker in message.stickers:
+                if sticker.url:
+                    components.append(ImageURLComponent(sticker.url, detail='auto'))
                 
         return cls(
             components=components,
