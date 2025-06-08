@@ -112,7 +112,7 @@ class Web(commands.Cog):
             results = []
             for r in self.search_web_pages(query, lang, num):
                 results.append({'title': r.title, 'url': r.url, 'description': r.description}) #type: ignore
-            return ToolResponseMessage({'results': results}, tool_call.data['id'], header=f"Recherche web pour \"{query}\"")
+            return ToolResponseMessage({'results': results}, tool_call.data['id'], header=f"Recherche web pour *\"{query}\"*")
         except Exception as e:
             return ToolResponseMessage({'error': str(e)}, tool_call.data['id'])
         
