@@ -510,15 +510,14 @@ class Main(commands.Cog):
             ','.join([str(author.id) for author in authors]), summary, channel.id, start_time.isoformat(), end_time.isoformat()
         )
 
-    def delete_old_summaries(self, channel: discord.TextChannel) -> None:
+    def delete_old_summaries(self, guild: discord.Guild) -> None:
         """Supprime les résumés d'un salon qui sont trop vieux."""
-        guild = channel.guild
-        summaries = self.get_all_summary(guild, channel)
+        summaries = self.get_all_summary(guild)
         for summary in summaries:
             if summary.end_time < datetime.now(timezone.utc) - SUMMARY_MAX_AGE:
                 self.data.get(guild).execute(
                     "DELETE FROM guild_summary WHERE channel_id = ? AND start_time = ? AND end_time = ?",
-                    channel.id, summary.start_time.isoformat(), summary.end_time.isoformat()
+                    summary.channel_id, summary.start_time.isoformat(), summary.end_time.isoformat()
                 )
                 logger.info(f"i --- Résumé supprimé : {summary.start_time} {summary.end_time}")
                 break
@@ -565,7 +564,7 @@ class Main(commands.Cog):
                        keywords: list[str] | None = None,
                        approx_time: datetime | None = None) -> list[Summary]:
         """Recherche un résumé en croisant différents critères (exclusif)"""
-        self.delete_old_summaries(channel)
+        self.delete_old_summaries(guild)
         summaries = self.get_all_summary(guild, channel)
         logger.warning(f"Recherche de résumés : {authors} {keywords} {approx_time}")
         if authors:
