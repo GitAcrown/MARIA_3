@@ -506,5 +506,5 @@ class MessageGroup:
                 return m.kwargs.get('message').channel
         return None
 
-    def search_for_message_components(self, component_type: type[MessageContentComponent], filter: Callable[[MessageContentComponent], bool] | None = None) -> list[MessageContentComponent]:
-        return [c for c in self.messages if isinstance(c, component_type) and (filter is None or filter(c))]
+    def search_for_message_components(self, filter: Callable[[MessageContentComponent], bool] = lambda _: True) -> list[MessageContentComponent]:
+        return [comp for m in self.messages for comp in m.components if filter(comp)]

@@ -599,9 +599,9 @@ class Main(commands.Cog):
                 self.register_attention(message)
 
                 headers = []
-                if group.search_for_message_components(MetadataTextComponent, lambda c: 'AUDIO' in c.data['text']):
+                if group.search_for_message_components(lambda c: isinstance(c, MetadataTextComponent) and 'AUDIO' in c.data['text']):
                     headers.append("Transcription audio")
-                if group.search_for_message_components(MetadataTextComponent, lambda c: 'VIDEO' in c.data['text']):
+                if group.search_for_message_components(lambda c: isinstance(c, MetadataTextComponent) and 'VIDEO' in c.data['text']):
                     headers.append("Analyse vidéo")
 
                 tools : list[ToolResponseMessage] = group.get_messages(lambda m: isinstance(m, ToolResponseMessage))
@@ -640,9 +640,9 @@ class Main(commands.Cog):
                     self.register_attention(after)
 
                     headers = []
-                    if group.search_for_message_components(MetadataTextComponent, lambda c: 'AUDIO' in c.data['text']):
+                    if group.search_for_message_components(lambda c: isinstance(c, MetadataTextComponent) and 'AUDIO' in c.data['text']):
                         headers.append("Transcription audio")
-                    if group.search_for_message_components(MetadataTextComponent, lambda c: 'VIDEO' in c.data['text']):
+                    if group.search_for_message_components(lambda c: isinstance(c, MetadataTextComponent) and 'VIDEO' in c.data['text']):
                         headers.append("Analyse vidéo")
 
                     tools : list[ToolResponseMessage] = group.get_messages(lambda m: isinstance(m, ToolResponseMessage))
