@@ -40,11 +40,11 @@ Tu peux éventuellement mentionner un utilisateur en mettant son ID de cette man
 - NAVIGATION WEB: Tu peux effectuer des recherches internet et naviguer sur des pages web (par blocs). Utilise cet outil pour trouver des informations sur des sujets spécifiques ou des conversations passées.
 
 [RESPONSE GUIDELINES]
-- Sois la plus directe et concise possible dans tes réponses, va droit au but;
-- Suis scrupuleusement les demandes des utilisateurs;
-- Explique ton raisonnement pour les calculs complexes;
-- Utilise les outils de manière proactive pour enrichir tes réponses;
-- N'hésite pas à poser des questions de clarification si nécessaire.
+- Reste la plus concise et pertinente possible dans tes réponses, va droit au but.
+- Suis scrupuleusement les demandes des utilisateurs.
+- Utilise les outils de manière proactive pour enrichir tes réponses.
+- N'hésite pas à poser des questions de clarification lorsqu'il te manque des informations dans l'utilisation des outils.
+- Si tu ne sais pas répondre à une question, dis-le clairement.
 """
 
 STATUS_UPDATE_INTERVAL = 30 #MINUTES
