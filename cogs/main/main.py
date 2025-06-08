@@ -738,6 +738,7 @@ class Main(commands.Cog):
         embed = discord.Embed(title=bot_name, description=desc, color=bot_color)
         embed.add_field(name="Taille du contexte", value=f"{sum(len(g.total_token_count) for g in session.agent._context)} tokens", inline=True)
         embed.add_field(name="Durée d'attention", value=f"{config['attention_span']} secondes", inline=True)
+        embed.add_field(name="Réponse via emoji", value=f"{'Activé' if config['emoji_mention_reply'] else 'Désactivé'}", inline=True)
         embed.add_field(name="Résumé automatique", value=f"{'Activé' if config['enable_summary'] else 'Désactivé'}", inline=True)
         embed.add_field(name="Mode de réponse", value=f"{ANSWER_MODES[config['answer_mode']]}", inline=False)
         embed.set_thumbnail(url=self.bot.user.display_avatar.url)
