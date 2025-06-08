@@ -672,7 +672,7 @@ class Main(commands.Cog):
     async def info(self, interaction: Interaction):
         """Affiche des informations sur le bot et son utilisation."""
         bot_name = self.bot.user.name
-        bot_color = self.bot.user.color
+        bot_color = interaction.guild.me.color
         session = await self.get_guild_chat_session(interaction.guild)
         config = self.get_guild_config(interaction.guild)
         embed = discord.Embed(title=bot_name, description="Un assistant intelligent pour Discord", color=bot_color)
