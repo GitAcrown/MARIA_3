@@ -1,3 +1,4 @@
+import asyncio
 import io
 import logging
 import os
@@ -50,6 +51,7 @@ Tu peux éventuellement mentionner un utilisateur en mettant son ID de cette man
 STATUS_UPDATE_INTERVAL = 30 #MINUTES
 ACTIVITY_MAX_MESSAGES = 10
 EMOJI_USED_FOR_REPLY = '❓'
+EMOJI_MESSAGE_MAX_AGE = 30 #SECONDS
 SUMMARY_MAX_AGE = timedelta(days=30)
 
 # PARAMÈTRES =================================================================
@@ -689,13 +691,18 @@ class Main(commands.Cog):
         config = self.get_guild_config(reaction.message.guild)
         if not bool(config['emoji_mention_reply']):
             return
+
+        if reaction.message.created_at + timedelta(seconds=EMOJI_MESSAGE_MAX_AGE) < datetime.now():
+            await reaction.message.remove_reaction(EMOJI_USED_FOR_REPLY, reaction.message.guild.me)
+            return
         
         if reaction.emoji == EMOJI_USED_FOR_REPLY:
             if reaction.message.author == self.bot.user:
                 return
             if not any(r.me for r in reaction.message.reactions):
                 return
-            
+            await reaction.message.remove_reaction(EMOJI_USED_FOR_REPLY, reaction.message.guild.me)
+
             async with reaction.message.channel.typing():
                 session = await self.get_guild_chat_session(reaction.message.guild)
                 group = await session.append_user_message(reaction.message)
