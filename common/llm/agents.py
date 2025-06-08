@@ -32,18 +32,18 @@ CHATBOT_MAX_CONTEXT_AGE = timedelta(hours=12)
 
 # Monitor
 MONITOR_DEV_PROMPT = """
-Tu dois déterminer si MARIA doit répondre aux messages fournis marqués d'un '<!>' et seulement ceux-ci.
+Tu dois déterminer si MARIA (SELF) doit répondre aux messages fournis marqués d'un '<!>'.
 
 REPONDRE 'YES' QUAND :
 - Le message contient une question directe avec "?" semblant adressée à MARIA (par ex. une question subsidiaire)
 - Le message contient une demande explicite de réponse (par ex. "Explique-moi", "Peux-tu")
 - Le message contient une demande de recherche d'informations (par ex. "Quelle est", "Où se trouve", "Combien")
-- Le message est une confirmation à une question oui/non de l'assistant.
+- Le message est une confirmation à une question oui/non de SELF.
 
 REPONDRE 'NO' QUAND :
-- Dans tous les cas où y'a un doute, même minime.
+- Dans absolument TOUT les cas où y'a un doute sur si il faut répondre ou non.
 - Les messages courts sans question comme les remerciements, salutations, réactions à un autre message, etc.
-- Les messages qui ne semblent pas être adressés à MARIA, ou qui mentionnent un autre utilisateur/bot/application.
+- Les messages qui ne semblent pas être adressés à SELF, ou qui mentionnent un autre utilisateur/bot/application.
 - Les messages de "réaction" à la réponse, comme des emojis ou des onomatopées.
 
 FORMAT DE L'HISTORIQUE :
@@ -58,7 +58,7 @@ Réponds en JSON avec : {"actions": [{"message_id": ID, "choice": "YES" ou "NO"}
 MONITOR_TEMPERATURE = 0.1
 MONITOR_COMPLETION_MODEL = 'gpt-4.1-nano'
 MONITOR_MAX_HISTORY_WINDOW = 20 # Nombre de messages maximum à récupérer dans l'historique
-MONITOR_CONTEXT_RETRIEVING = timedelta(minutes=5) # Age maximum du message le plus ancien à récupérer dans l'historique
+MONITOR_CONTEXT_RETRIEVING = timedelta(minutes=10) # Age maximum du message le plus ancien à récupérer dans l'historique
 
 # Summary
 SUMMARY_DEV_PROMPT = """
@@ -703,6 +703,11 @@ class SummaryAgent(GPTAgent):
         history = self.get_history()
         if not history:
             return None 
+        
+        # On retire les images
+        history = [m for m in history if not m.contains_image]
+        if not history:
+            return None
         
         # On lance une complétion
         payload = [self.dev_prompt.payload] + [m.payload for m in history]
