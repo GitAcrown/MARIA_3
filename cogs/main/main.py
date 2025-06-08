@@ -49,6 +49,7 @@ Tu peux éventuellement mentionner un utilisateur en mettant son ID de cette man
 
 STATUS_UPDATE_INTERVAL = 30 #MINUTES
 ACTIVITY_MAX_MESSAGES = 10
+EMOJI_USED_FOR_REPLY = '❓'
 SUMMARY_MAX_AGE = timedelta(days=30)
 
 # PARAMÈTRES =================================================================
@@ -244,8 +245,9 @@ class Main(commands.Cog):
             name='guild_config',
             default_values={
                 'answer_mode': 'AUTO',
-                'attention_span': 45, # En secondes
+                'attention_span': 30, # En secondes
                 'activity_threshold': 10, # Nombre de messages par minute
+                'emoji_mention_reply': True, # Proposer une réponse via emoji si mentionné
                 'enable_summary': True
             },
             insert_on_reconnect=True
@@ -466,12 +468,19 @@ class Main(commands.Cog):
                 return False
             return True
         
-        if config['answer_mode'] == 'GREEDY': # SEULEMENT mode GREEDY = On répond aussi si le bot est mentionné indirectement (mention de nom ou display_name en regex)
+        emoji_reply = bool(config['emoji_mention_reply'])
+        if config['answer_mode'] == 'GREEDY' or emoji_reply: # SEULEMENT mode GREEDY = On répond aussi si le bot est mentionné indirectement (mention de nom ou display_name en regex)
+            detected = False
             s = re.search(rf'\b{re.escape(bot.user.name.lower())}\b', message.content.lower())
             if s:
-                return True
+                detected = True
             s = re.search(rf'\b{re.escape(bot.user.display_name.lower())}\b', message.content.lower())
             if s:
+                detected = True
+            if detected:
+                if emoji_reply:
+                    await message.add_reaction(EMOJI_USED_FOR_REPLY)
+                    return False
                 return True
             return False
         
@@ -600,6 +609,8 @@ class Main(commands.Cog):
                 headers = []
                 if group.search_for_message_components(MetadataTextComponent, lambda c: 'AUDIO' in c.data['text']):
                     headers.append("Transcription audio")
+                if group.search_for_message_components(MetadataTextComponent, lambda c: 'VIDEO' in c.data['text']):
+                    headers.append("Analyse vidéo")
 
                 tools : list[ToolResponseMessage] = group.get_messages(lambda m: isinstance(m, ToolResponseMessage))
                 headers.extend(list(set([trm.header for trm in tools if trm.header])))
@@ -639,6 +650,8 @@ class Main(commands.Cog):
                     headers = []
                     if group.search_for_message_components(MetadataTextComponent, lambda c: 'AUDIO' in c.data['text']):
                         headers.append("Transcription audio")
+                    if group.search_for_message_components(MetadataTextComponent, lambda c: 'VIDEO' in c.data['text']):
+                        headers.append("Analyse vidéo")
 
                     tools : list[ToolResponseMessage] = group.get_messages(lambda m: isinstance(m, ToolResponseMessage))
                     headers.extend(list(set([trm.header for trm in tools if trm.header])))
@@ -664,6 +677,52 @@ class Main(commands.Cog):
         
         summ_agent = self.get_summary_agent(message.channel)
         summ_agent.try_removing_message(message)
+
+    @commands.Cog.listener()
+    async def on_reaction_add(self, reaction: discord.Reaction, user: discord.User):
+        if user == self.bot.user:
+            return
+        
+        if reaction.message.guild is None:
+            return
+
+        config = self.get_guild_config(reaction.message.guild)
+        if not bool(config['emoji_mention_reply']):
+            return
+        
+        if reaction.emoji == EMOJI_USED_FOR_REPLY:
+            if reaction.message.author == self.bot.user:
+                return
+            if not any(r.me for r in reaction.message.reactions):
+                return
+            
+            async with reaction.message.channel.typing():
+                session = await self.get_guild_chat_session(reaction.message.guild)
+                group = await session.append_user_message(reaction.message)
+                response = await session.get_answer()
+                self.register_attention(reaction.message)
+
+                headers = []
+                if group.search_for_message_components(MetadataTextComponent, lambda c: 'AUDIO' in c.data['text']):
+                    headers.append("Transcription audio")
+                if group.search_for_message_components(MetadataTextComponent, lambda c: 'VIDEO' in c.data['text']):
+                    headers.append("Analyse vidéo")
+
+                tools : list[ToolResponseMessage] = group.get_messages(lambda m: isinstance(m, ToolResponseMessage))
+                headers.extend(list(set([trm.header for trm in tools if trm.header])))
+                if headers:
+                    response = '\n-# ' + '\n-# '.join(headers[::-1]) + '\n' + response
+
+                if len(response) > 2000:
+                    response = response[:1997] + '...'
+
+                last_message = reaction.message.channel.last_message
+                if last_message == reaction.message:
+                    message = await reaction.message.channel.send(response, mention_author=False)
+                else:
+                    message = await reaction.message.reply(response, mention_author=False)
+                await self.handle_summarization(message, type='assistant')
+                group.last_completion.message = message
 
     # COMMANDES >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
@@ -695,7 +754,11 @@ class Main(commands.Cog):
         :param mode: Mode de réponse
         """
         self.set_guild_config(interaction.guild, answer_mode=mode)
-        await interaction.response.send_message(f"**MODE DE RÉPONSE MODIFIÉ** ⸱ *{ANSWER_MODES[mode]}*", ephemeral=True)
+        if mode == 'GREEDY' and bool(self.get_guild_config(interaction.guild)['emoji_mention_reply']):
+            self.set_guild_config(interaction.guild, emoji_mention_reply=False)
+            await interaction.response.send_message(f"**MODE DE RÉPONSE MODIFIÉ** ⸱ *{ANSWER_MODES[mode]}*\n-# La réponse via emoji a été désactivée car fait doublon avec le mode 'GREEDY'.", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"**MODE DE RÉPONSE MODIFIÉ** ⸱ *{ANSWER_MODES[mode]}*", ephemeral=True)
 
     @settings_group.command(name='attention-span')
     async def attention_span(self, interaction: Interaction, span: app_commands.Range[int, 10, 300]):
@@ -714,6 +777,18 @@ class Main(commands.Cog):
         """
         self.set_guild_config(interaction.guild, activity_threshold=threshold)
         await interaction.response.send_message(f"**SEUIL D'ACTIVITÉ MODIFIÉ** ⸱ Réglé sur *{threshold}* messages par minute", ephemeral=True)
+
+    @settings_group.command(name='emoji-reply')
+    async def emoji_mention_reply(self, interaction: Interaction, toggle: bool):
+        """Définit si le bot doit proposer une réponse via emoji si mentionné.
+        
+        :param toggle: True pour activer, False pour désactiver
+        """
+        self.set_guild_config(interaction.guild, emoji_mention_reply=toggle)
+        if toggle:
+            await interaction.response.send_message(f"**RÉPONSE VIA ÉMOJI** ⸱ Le bot proposera une réponse via emoji si mentionné.", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"**RÉPONSE VIA ÉMOJI** ⸱ Le bot ne proposera plus de réponse via emoji si mentionné.", ephemeral=True)
 
     @settings_group.command(name='enable-summary')
     async def enable_summary(self, interaction: Interaction, toggle: bool):
