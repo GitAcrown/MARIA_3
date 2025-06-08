@@ -491,7 +491,7 @@ class ChatbotAgent(GPTAgent):
                             temperature=VIDEO_ANALYSIS_TEMPERATURE,
                             max_tokens=VIDEO_ANALYSIS_MAX_COMPLETION_TOKENS
                         )
-                        analysis = MetadataTextComponent('VIDEO', filename=obj.attachment.filename, duration=duration, audio_transcript=audio_transcript, images_extracted=len(images), analysis=analysis.full_text)
+                        analysis = MetadataTextComponent('VIDEO', filename=obj.attachment.filename, duration=duration, audio_transcript=audio_transcript, images_extracted=len(images), description=analysis.full_text)
                         self.__video_cache[obj.attachment.filename] = analysis
                     except openai.BadRequestError as e:
                         if 'invalid_image_url' in str(e):
