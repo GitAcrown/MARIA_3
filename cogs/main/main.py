@@ -1,6 +1,7 @@
 import io
 import logging
 import os
+import random
 import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -9,11 +10,9 @@ import numexpr as ne
 
 import discord
 from discord import Interaction, app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 from moviepy import VideoFileClip
 from openai import AsyncOpenAI
-from openai.types.chat.chat_completion import ChatCompletion
-from openai.types.chat.chat_completion_message_tool_call import ChatCompletionMessageToolCall
 
 from common import dataio
 from common.llm.agents import *
@@ -24,7 +23,7 @@ logger = logging.getLogger(f'MARIA3.{__name__.split(".")[-1]}')
 # CONSTANTES ----------------------------------------------------------------
 
 DEVELOPER_PROMPT_TEMPLATE = lambda current_datetime, weekday: f"""[BEHAVIOR]
-Tu es WARIA, un assistant intelligent conversant avec plusieurs utilisateurs dans un salon textuel Discord.
+Tu es MARIA, un assistant intelligent conversant avec plusieurs utilisateurs dans un salon textuel Discord.
 Ne mets jamais ni ton nom ni ton identifiant dans tes réponses, tu n'inclues pas de balises dans tes réponses.
 Tu peux analyser les images qu'on te donne avec précision et détail.
 Les informations contenues dans les balises '<...>' dans les messages de l'historique sont des metadonnées extraites de pièces jointes qui peuvent t'aider à répondre.
@@ -47,6 +46,7 @@ Les informations contenues dans les balises '<...>' dans les messages de l'histo
 - N'hésite pas à poser des questions de clarification si nécessaire.
 """
 
+STATUS_UPDATE_INTERVAL = 30 #MINUTES
 ACTIVITY_MAX_MESSAGES = 10
 SUMMARY_MAX_AGE = timedelta(days=30)
 
@@ -197,6 +197,30 @@ class GuildChatSession:
         elif return_type == 'component':
             return MetadataTextComponent('AUDIO', filename=file.name, transcript=transcript)
         raise ValueError(f"Type de retour invalide: {return_type}")
+    
+class StatusUpdaterAgent:
+    def __init__(self, client: AsyncOpenAI):
+        self.client = client
+        self.model = "gpt-4.1-nano"
+        self.system_prompt = """
+        Invente un seul petit message de statut mignon et marrant pour un bot Discord sans emojis. Il doit être très court, concis (max. 32 caractères) et en français.
+        Il doit être en rapport avec le bot et son activité (Chatbot IA).
+        """
+
+    class MessageStatus(BaseModel):
+        status: str
+
+    async def get_status(self) -> str:
+        """Récupère un statut en fonction de l'humeur."""
+        prompt = self.system_prompt
+        response = await self.client.beta.chat.completions.parse(
+            model=self.model,
+            messages=[{"role": "developer", "content": prompt}],
+            response_format=self.MessageStatus
+        )
+        if not response.choices[0].message.parsed:
+            raise Exception("Erreur lors de la récupération du statut.")
+        return response.choices[0].message.parsed.status
 
 # COG =======================================================================
 class Main(commands.Cog):
@@ -229,12 +253,15 @@ class Main(commands.Cog):
 
         # Agents
         self._gptclient = AsyncOpenAI(api_key=self.bot.config['OPENAI_API_KEY'])
+        self._status_updater_agent = StatusUpdaterAgent(self._gptclient)
         self._monitor_agent = MonitorAgent(self._gptclient)
         self._guilds_sessions : dict[int, GuildChatSession] = {}
         self._summary_agents : dict[int, SummaryAgent] = {}
 
         self._monitor_attention : dict[int, dict] = {}
         self._channel_activity : dict[int, list[discord.Message]] = {}
+
+        self.update_status.start()
 
         # Outils
         self.AGENT_TOOLS = [
@@ -271,8 +298,22 @@ class Main(commands.Cog):
         ]
 
     async def cog_unload(self):
-        self._gptclient.close()
+        self.update_status.cancel()
+        await self._gptclient.close()
         self.data.close_all()
+
+    # Loop ====================================================================
+
+    # Mise à jour du statut à intervalle régulier
+    @tasks.loop(minutes=STATUS_UPDATE_INTERVAL)
+    async def update_status(self):
+        new_status = await self._status_updater_agent.get_status()
+        await self.bot.change_presence(activity=discord.Activity(type=discord.ActivityType.custom, name='custom', state=new_status))
+        logger.info(f"i --- Statut mis à jour : {new_status}")
+        
+    @update_status.before_loop
+    async def before_update_status(self):
+        await self.bot.wait_until_ready()  
 
     # Config =================================================================
 

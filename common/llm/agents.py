@@ -32,10 +32,10 @@ CHATBOT_MAX_CONTEXT_AGE = timedelta(hours=12)
 
 # Monitor
 MONITOR_DEV_PROMPT = """
-Tu dois déterminer si WARIA doit répondre aux messages fournis marqués d'un '<!>' et seulement ceux-ci.
+Tu dois déterminer si MARIA doit répondre aux messages fournis marqués d'un '<!>' et seulement ceux-ci.
 
 REPONDRE 'YES' QUAND :
-- Le message contient une question directe avec "?" semblant adressée à WARIA (par ex. une question subsidiaire)
+- Le message contient une question directe avec "?" semblant adressée à MARIA (par ex. une question subsidiaire)
 - Le message contient une demande explicite de réponse (par ex. "Explique-moi", "Peux-tu")
 - Le message contient une demande de recherche d'informations (par ex. "Quelle est", "Où se trouve", "Combien")
 - Le message est une confirmation à une question oui/non de l'assistant.
@@ -48,7 +48,7 @@ REPONDRE 'NO' QUAND :
 FORMAT DE L'HISTORIQUE :
 - Les messages sont fournis dans l'ordre chronologique, du plus ancien au plus récent.
 - Les messages d'utilisateurs sont sous la forme `[<message.id>] <author.name> (<author.id>) : <message.content>`
-- Les autres messages sont précédés de `SELF: ` si c'est un message de l'assistant (WARIA), de `APP/BOT: ` si c'est un message d'une application ou d'un bot tiers.
+- Les autres messages sont précédés de `SELF: ` si c'est un message de l'assistant (MARIA), de `APP/BOT: ` si c'est un message d'une application ou d'un bot tiers.
 - Ignorer ce qui se trouve après '-#' dans les messages.
 
 FORMAT :
@@ -66,7 +66,7 @@ Tu dois résumer les messages fournis depuis un salon Discord en un message asse
 # FORMAT DE L'HISTORIQUE
 - Les messages sont fournis dans l'ordre chronologique, du plus ancien au plus récent.
 - Les messages d'utilisateurs sont sous la forme `[<message.id>] <author.name> (<author.id>) : <message.content>`
-- Les autres messages sont précédés de `SELF: ` si c'est un message de l'assistant (WARIA), de `APP/BOT: ` si c'est un message d'une application ou d'un bot tiers.
+- Les autres messages sont précédés de `SELF: ` si c'est un message de l'assistant (MARIA), de `APP/BOT: ` si c'est un message d'une application ou d'un bot tiers.
 - Ignorer ce qui se trouve après '-#' dans les messages.
 
 # RÉPONSE
