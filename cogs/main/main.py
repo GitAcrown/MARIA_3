@@ -227,62 +227,6 @@ class GuildChatSession:
             return transcript
         elif return_type == 'component':
             return MetadataTextComponent('AUDIO', filename=file.name, transcript=transcript)
-        raise ValueError(f"Type de retour invalide: {return_type}")
-    
-class AskCtxAgent:
-    def __init__(self, client: AsyncOpenAI, original_message: discord.Message, query: str):
-        self.client = client
-        self.model = "gpt-4.1-nano"
-        self.original_message = original_message
-
-        # Prompt pour répondre à la requête
-        self.sys_prompt = f"""
-        A partir de l'historique de messages extrait du salon Discord, réponds de manière concise et pertinente possible à la demande de l'utilisateur (ci-dessous) en suivant avec précision les instructions.
-        En plus du message original qui est recopié ci-dessous, le contexte est fourni (messages avant et après le message original).
-        Les messages de l'historique sont fournis dans le format suivant : `[datetime.isoformat(message.created_at)] <author.name> : <message.content>`
-        Tu dois répondre en français. Ne recopie pas la demande de l'utilisateur, ne la paraphrasé pas. Si tu ne peux pas répondre à la demande, dis-le clairement.
-
-        CONTENU DU MESSAGE ORIGINAL (sans contexte ajouté) : {self.original_message.clean_content}
-        DEMANDE DE L'UTILISATEUR : {query}
-        """
-
-    async def fetch_messages(self, before_max: int = 100, after_max: int = 100) -> list[discord.Message]:
-        """Récupère les messages à récupérer avant et après le message original."""
-        max_tokens_per_loop = 10000
-
-        before_msg = []
-        total_tokens = 0
-        after_msg = []
-        async for m in self.original_message.channel.history(after=self.original_message, limit=abs(after_max)):
-            after_msg.append(m)
-            total_tokens += len(GPT_TOKENIZER.encode(m.clean_content))
-            if total_tokens > max_tokens_per_loop:
-                break
-        if len(after_msg) < after_max:
-            before_max += after_max - len(after_msg) # On ajoute les messages non utilisés à before_max
-        async for m in self.original_message.channel.history(before=self.original_message, limit=abs(before_max)):
-            before_msg.append(m)
-            total_tokens += len(GPT_TOKENIZER.encode(m.clean_content))
-            if total_tokens > max_tokens_per_loop:
-                break
-        all_messages = before_msg[::-1] + [self.original_message] + after_msg   
-        return all_messages
-
-    async def get_response(self, messages: list[discord.Message]) -> tuple[str, int]:
-        """Récupère la réponse à la requête principale."""
-        context = [{"role": "user", "content": f"[{datetime.isoformat(m.created_at)}] {m.author.name}: {m.clean_content}"} for m in messages]
-        full_context = [{"role": "developer", "content": self.sys_prompt}] + context
-
-        try:
-            response = await self.client.chat.completions.create(
-            model=self.model,
-            messages=full_context,
-            temperature=0.1,
-            max_tokens=CHATBOT_MAX_COMPLETION_TOKENS
-            )
-            return response.choices[0].message.content, len(messages)
-        except Exception as e:
-            return f"Erreur lors de la récupération de la réponse à la requête principale : {e}", 0
 
 class StatusUpdaterAgent:
     def __init__(self, client: AsyncOpenAI):
@@ -346,11 +290,6 @@ class Main(commands.Cog):
             )"""
         )
         self.data.map_builders(discord.Guild, guild_config, guild_summary)
-
-        self.ctx_ask_agent = app_commands.ContextMenu(
-            name="Demande contexuelle",
-            callback=self.ask_agent_callback)
-        self.bot.tree.add_command(self.ctx_ask_agent)
 
         # Agents
         self._gptclient = AsyncOpenAI(api_key=self.bot.config['OPENAI_API_KEY'])
@@ -765,32 +704,6 @@ class Main(commands.Cog):
         
         summ_agent = self.get_summary_agent(message.channel)
         summ_agent.try_removing_message(message)
-
-    # CONTEXT MENU >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    
-    async def ask_agent_callback(self, interaction: Interaction, message: discord.Message):
-        """Demander à MARIA de répondre à une requête à partir du contexte  entourant le message sélectionné."""
-        if not isinstance(message.channel, (discord.TextChannel, discord.Thread)):
-            return await interaction.response.send_message("*Cette commande ne peut être utilisée que dans un salon de discussion.*", ephemeral=True)
-        logger.info(f"ask_agent_callback: {interaction.user.name} -> {message.content}")
-
-        prompt_modal = AskAgentPromptModal()
-        await interaction.response.send_modal(prompt_modal)
-        await prompt_modal.wait()
-        request = prompt_modal.request.value
-        if not request:
-            return
-        
-        agent = AskCtxAgent(self._gptclient, message, request)
-        followup = await interaction.followup.send("*Lecture des messages...*", ephemeral=True)
-        messages = await agent.fetch_messages()
-        await followup.edit(content=f"*Génération d'une réponse...*")
-        response, nb_messages = await agent.get_response(messages)
-        if nb_messages > 0:
-            text = f"-# A partir de {nb_messages} messages\n*{response}*"
-        else:
-            text = f"***{response}***"
-        await followup.edit(content=text)
 
     # COMMANDES >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
