@@ -700,10 +700,10 @@ class Main(commands.Cog):
 
     @app_commands.command(name='summary')
     @app_commands.rename(only_user='seulement')
-    async def summary(self, interaction: Interaction, nb_messages: app_commands.Range[int, 10, 200] = 50, only_user: discord.Member | None = None):
+    async def summary(self, interaction: Interaction, nb_messages: app_commands.Range[int, 10, 200] = 100, only_user: discord.Member | None = None):
         """Effectue un résumé manuel des derniers messages d'un salon.
         
-        :param nb_messages: Nombre de messages à résumer avant la commande
+        :param nb_messages: Nombre de messages à consulter pour le résumé, par défaut 100
         :param only_user: Si spécifié, ne résumera que les messages de cet utilisateur
         """
         channel = interaction.channel
