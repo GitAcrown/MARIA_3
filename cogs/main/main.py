@@ -704,6 +704,7 @@ class Main(commands.Cog):
         :param nb_messages: Nombre de messages à résumer avant la commande
         """
         channel = interaction.channel
+        await interaction.response.defer()
         agent = SummaryAgent(self._gptclient)
         async for message in channel.history(limit=nb_messages):
             if message.author.bot:
@@ -711,10 +712,10 @@ class Main(commands.Cog):
             agent.add_user_message(message)
         agentsummary = await agent.summarize_history()
         embed = discord.Embed(title="Résumé des messages", description=agentsummary.text, color=interaction.guild.me.color)
-        embed.add_field(name="Auteurs", value=", ".join([f"<@{author_id}>" for author_id in agentsummary.authors]), inline=False)
+        embed.add_field(name="Auteurs", value=", ".join([author.name for author in set(agentsummary.authors)]), inline=False)
         start, end = agentsummary.start_time.strftime('%d/%m/%Y %H:%M'), agentsummary.end_time.strftime('%d/%m/%Y %H:%M')
         embed.add_field(name="Intervalle de temps", value=f"{start} - {end}", inline=False)
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     settings_group = app_commands.Group(name='settings', description="Paramètres généraux", default_permissions=discord.Permissions(manage_messages=True))
 
