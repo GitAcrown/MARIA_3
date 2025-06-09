@@ -237,7 +237,7 @@ class AskCtxAgent:
 
         # Prompt pour répondre à la requête
         self.sys_prompt = f"""
-        A partir de l'historique de messages extrait du salon Discord, réponds de manière la plus concise et pertinente possible à la demande de l'utilisateur.
+        A partir de l'historique de messages extrait du salon Discord, réponds de manière concise et pertinente possible à la demande de l'utilisateur (ci-dessous) en suivant avec précision les instructions.
         En plus du message original qui est recopié ci-dessous, le contexte est fourni (messages avant et après le message original).
         Les messages de l'historique sont fournis dans le format suivant : `[datetime.isoformat(message.created_at)] <author.name> : <message.content>`
         Tu dois répondre en français. Ne recopie pas la demande de l'utilisateur, ne la paraphrasé pas. Si tu ne peux pas répondre à la demande, dis-le clairement.
