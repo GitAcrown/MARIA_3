@@ -60,6 +60,37 @@ ANSWER_MODES = {
     'AUTO': "Détermine automatiquement la nécessité de répondre en fonction du contexte.",
 }
 
+# UI ========================================================================
+
+class AskAgentPromptModal(discord.ui.Modal, title="Demander à MARIA"):
+    def __init__(self) -> None:
+        super().__init__(timeout=None)
+
+        PLACEHOLDER_EXAMPLES = [
+            "Résume moi la conversation",
+            "Traduit ce message en anglais",
+            "Explique ce message à un enfant de 5 ans",
+            "Donne-moi plus d'infos sur ce sujet"
+        ]
+
+        # Requête
+        self.request = discord.ui.TextInput(
+            label="Votre requête",
+            style=discord.TextStyle.long,
+            placeholder=f"Ex. '{random.choice(PLACEHOLDER_EXAMPLES)}'",
+            required=True,
+            min_length=1,
+            max_length=128
+        )
+        self.add_item(self.request)
+        
+    async def on_submit(self, interaction: Interaction) -> None:
+        await interaction.response.defer(ephemeral=True)
+        return self.stop()
+        
+    async def on_error(self, interaction: Interaction, error: Exception) -> None:
+        return await interaction.response.send_message(f"**Erreur** × {error}", ephemeral=True)
+
 # CLASSES ===================================================================
 
 class Summary:
@@ -199,6 +230,78 @@ class GuildChatSession:
             return MetadataTextComponent('AUDIO', filename=file.name, transcript=transcript)
         raise ValueError(f"Type de retour invalide: {return_type}")
     
+class AskCtxAgent:
+    def __init__(self, client: AsyncOpenAI, message: discord.Message, query: str):
+        self.client = client
+        self.model = "gpt-4.1-nano"
+        self.original_message = message
+
+        # Prompt pour déterminer la qté de messages à récupérer
+        self.retrieve_prompt = f"""
+        Estime la quantité de messages à récupérer avant et après le message fourni par l'utilisateur afin de satisfaire au mieux la demande de ce dernier.
+        Tu dois répondre dans un format JSON avec les clés 'before' et 'after' et les valeurs du nombre de messages à récupérer avant et après la demande de l'utilisateur et SEULEMENT ces nombres.
+        Tu ne peux dépasser 100 messages avant ou après le message fourni. Le contenu de celui-ci t'es fourni ci-dessous.
+
+        CONTENU DU MESSAGE : {message.clean_content}
+        DEMANDE DE L'UTILISATEUR : '{query}'
+        """
+        self.before, self.after = 0, 0
+
+        # Prompt pour répondre à la requête principale
+        self.main_prompt = f"""
+        A partir de l'historique de messages extrait du salon Discord, réponds de manière la plus concise et pertinente possible à la demande de l'utilisateur.
+        Les messages sont fournis dans le format suivant : `[datetime.isoformat(message.created_at)] <author.name> : <message.content>`
+        Tu dois répondre en français. Ne recopie pas la demande de l'utilisateur, ne la paraphrasé pas.
+
+        DEMANDE DE L'UTILISATEUR : '{query}'
+        """
+
+    class MessageRetrieve(BaseModel):
+        before: int
+        after: int
+
+    async def get_retrieve(self) -> None:
+        """Récupère la qté de messages à récupérer avant et après le message original."""
+        response = await self.client.beta.chat.completions.parse(
+            model=self.model,
+            messages=[{"role": "developer", "content": self.retrieve_prompt}],
+            response_format=self.MessageRetrieve
+        )
+        if not response.choices[0].message.parsed:
+            return f"Erreur dans la détermination des messages à récupérer."
+        self.before, self.after = response.choices[0].message.parsed.before, response.choices[0].message.parsed.after
+
+    async def get_messages(self) -> list[discord.Message]:
+        """Récupère les messages à récupérer avant et après le message original."""
+        self.before = min(self.before, 100)
+        self.after = min(self.after, 100)
+
+        before_msg = []
+        async for m in self.original_message.channel.history(before=self.original_message, limit=self.before):
+            before_msg.append(m)
+        after_msg = []
+        async for m in self.original_message.channel.history(after=self.original_message, limit=self.after):
+            after_msg.append(m)
+        all_messages = before_msg[::-1] + [self.original_message] + after_msg
+        return all_messages
+
+    async def get_main_response(self) -> tuple[str, int]:
+        """Récupère la réponse à la requête principale."""
+        messages = await self.get_messages()
+        print([m.clean_content for m in messages])
+        context = [{"role": "user", "content": f"[{datetime.isoformat(m.created_at)}] {m.author.name}: {m.clean_content}"} for m in messages]
+        full_context = [{"role": "developer", "content": self.main_prompt}] + context
+        try:
+            response = await self.client.chat.completions.create(
+            model=self.model,
+            messages=full_context,
+            temperature=0.1,
+            max_tokens=CHATBOT_MAX_COMPLETION_TOKENS
+            )
+            return response.choices[0].message.content, len(messages)
+        except Exception as e:
+            return f"Erreur lors de la récupération de la réponse à la requête principale : {e}", 0
+
 class StatusUpdaterAgent:
     def __init__(self, client: AsyncOpenAI):
         self.client = client
@@ -261,6 +364,11 @@ class Main(commands.Cog):
             )"""
         )
         self.data.map_builders(discord.Guild, guild_config, guild_summary)
+
+        self.ctx_ask_agent = app_commands.ContextMenu(
+            name="Demander à MARIA",
+            callback=self.ask_agent_callback)
+        self.bot.tree.add_command(self.ctx_ask_agent)
 
         # Agents
         self._gptclient = AsyncOpenAI(api_key=self.bot.config['OPENAI_API_KEY'])
@@ -670,6 +778,25 @@ class Main(commands.Cog):
         summ_agent = self.get_summary_agent(message.channel)
         summ_agent.try_removing_message(message)
 
+    # CONTEXT MENU >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    
+    async def ask_agent_callback(self, interaction: Interaction, message: discord.Message):
+        """Demander à MARIA de répondre à une requête à partir du contexte  entourant le message sélectionné."""
+        prompt_modal = AskAgentPromptModal()
+        await interaction.response.send_modal(prompt_modal)
+        await prompt_modal.wait()
+        request = prompt_modal.request.value
+        if not request:
+            return
+        
+        agent = AskCtxAgent(self._gptclient, message, request)
+        response, nb_messages = await agent.get_main_response()
+        if nb_messages > 0:
+            text = f"-# A partir de {nb_messages} messages\n*{response}*"
+        else:
+            text = f"***{response}***"
+        await interaction.followup.send(text, ephemeral=True)
+
     # COMMANDES >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
     @app_commands.command(name='info')
@@ -696,43 +823,6 @@ class Main(commands.Cog):
         session = await self.get_guild_chat_session(interaction.guild)
         session.agent.flush_history()
         await interaction.response.send_message("**MÉMOIRE RÉINITIALISÉE** ⸱ La mémoire contextuelle de l'assistant a été réinitialisée.", delete_after=30)
-
-    @app_commands.command(name='summary')
-    @app_commands.rename(time_range='période', only_user='seulement')
-    async def summary(self, interaction: Interaction, time_range: Literal['10m', '30m', '1h', '3h'] = '10m', only_user: discord.Member | None = None):
-        """Effectue un résumé manuel des derniers messages d'un salon (jusqu'à 1000 messages).
-        
-        :param time_range: Période de temps à considérer pour le résumé, par défaut 10 minutes
-        :param only_user: Si spécifié, ne résumera que les messages de cet utilisateur
-        """
-        times = {
-            '10m': timedelta(minutes=10),
-            '30m': timedelta(minutes=30),
-            '1h': timedelta(hours=1),
-            '3h': timedelta(hours=3)
-        }
-        channel = interaction.channel
-        await interaction.response.defer()
-        agent = SummaryAgent(self._gptclient)
-        messages = []
-        async for message in channel.history(limit=1000):
-            if message.author.bot:
-                continue
-            if only_user and message.author != only_user: continue
-            if message.created_at < interaction.created_at - times[time_range]:
-                break
-            messages.append(message)
-        agent.bulk_load_user_messages(messages)
-        agentsummary = await agent.summarize_history()
-        total_messages = len(agent._history)
-        if only_user:   
-            title = f"Résumé des **{total_messages}** derniers messages de **{only_user.name}**"
-        else:
-            title = f"Résumé des **{total_messages}** derniers messages"
-        embed = discord.Embed(title=title, description=f'*{agentsummary.text}*', color=interaction.guild.me.color)
-        if not only_user:
-            embed.add_field(name="Participants", value=", ".join([author.name for author in set(agentsummary.authors)]), inline=False)
-        await interaction.followup.send(embed=embed)
 
     settings_group = app_commands.Group(name='settings', description="Paramètres généraux", default_permissions=discord.Permissions(manage_messages=True))
 
