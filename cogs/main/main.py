@@ -709,14 +709,14 @@ class Main(commands.Cog):
         channel = interaction.channel
         await interaction.response.defer()
         agent = SummaryAgent(self._gptclient)
-        async for message in channel.history(limit=nb_messages, oldest_first=True):
+        messages = []
+        async for message in channel.history(limit=nb_messages):
             if message.author.bot:
                 continue
-            if only_user and message.author != only_user:
-                continue
-            if message.created_at < interaction.created_at - MANUAL_SUMMARY_MAX_AGE:
-                break
-            agent.add_user_message(message)
+            if only_user and message.author != only_user: continue
+            if message.created_at < interaction.created_at - MANUAL_SUMMARY_MAX_AGE: break
+            messages.append(message)
+        agent.bulk_load_user_messages(messages[::-1])
         agentsummary = await agent.summarize_history()
         total_messages = len(agent._history)
         if only_user:   

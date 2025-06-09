@@ -676,6 +676,11 @@ class SummaryAgent(GPTAgent):
         else:
             self._history.append(AssistantMessage(TextComponent(message.clean_content)))
 
+    def bulk_load_user_messages(self, messages: list[discord.Message]) -> None:
+        """Ajoute un ensemble de messages d'utilisateur à l'historique."""
+        for message in messages:
+            self.add_user_message(message)
+
     def try_removing_message(self, message: discord.Message) -> bool:
         """Essaye de supprimer un message de l'historique en le retrouvant par son ID."""
         for m in self._history:
