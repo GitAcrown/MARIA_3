@@ -689,7 +689,36 @@ class Main(commands.Cog):
         embed.set_thumbnail(url=self.bot.user.display_avatar.url)
         embed.set_footer(text=f"Utilisez /settings pour configurer le bot.")
         await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(name='forget')
+    async def forget(self, interaction: Interaction):
+        """Réinitialise la mémoire contextuelle (mémoire courte durée) de l'assistant."""
+        session = await self.get_guild_chat_session(interaction.guild)
+        session.agent.flush_history()
+        await interaction.response.send_message("**MÉMOIRE RÉINITIALISÉE** ⸱ La mémoire contextuelle de l'assistant a été réinitialisée.", delete_after=30)
+
+    @app_commands.command(name='summary')
+    async def summary(self, interaction: Interaction, nb_messages: app_commands.Range[int, 10, 100] = 50):
+        """Effectue un résumé manuel des derniers messages d'un salon.
         
+        :param nb_messages: Nombre de messages à résumer avant la commande
+        """
+        channel = interaction.channel
+        messages = channel.history(limit=nb_messages)
+        if not messages:
+            await interaction.response.send_message("Aucun message trouvé.", ephemeral=True)
+            return
+        messages = list(messages)
+        summ_agent = self.get_summary_agent(channel)
+        for message in messages:
+            await summ_agent.add_user_message(message)
+        agentsummary = await summ_agent.summarize_history()
+        embed = discord.Embed(title="Résumé des messages", description=agentsummary.text, color=interaction.guild.me.color)
+        embed.add_field(name="Auteurs", value=", ".join([f"<@{author_id}>" for author_id in agentsummary.authors]), inline=False)
+        start, end = agentsummary.start_time.strftime('%d/%m/%Y %H:%M'), agentsummary.end_time.strftime('%d/%m/%Y %H:%M')
+        embed.add_field(name="Intervalle de temps", value=f"{start} - {end}", inline=False)
+        await interaction.response.send_message(embed=embed)
+
     settings_group = app_commands.Group(name='settings', description="Paramètres généraux", default_permissions=discord.Permissions(manage_messages=True))
 
     @settings_group.command(name='answer-mode')

@@ -198,6 +198,10 @@ class ChatbotAgent(GPTAgent):
         """Supprime un groupe de messages."""
         for group in groups:
             self._context.remove(group)
+    
+    def flush_history(self) -> None:
+        """Réinitialise la mémoire contextuelle de l'assistant."""
+        self._context = []
 
     # Gestion 
 
