@@ -62,17 +62,16 @@ ANSWER_MODES = {
 
 # UI ========================================================================
 
-class AskAgentPromptModal(discord.ui.Modal, title="Demander à MARIA"):
+class AskAgentPromptModal(discord.ui.Modal, title="Demande contexuelle"):
     def __init__(self) -> None:
         super().__init__(timeout=None)
 
         PLACEHOLDER_EXAMPLES = [
-            "Résume moi la conversation",
+            "Résume la conversation avant ça",
             "Traduit ce message en anglais",
-            "Explique ce message à un enfant de 5 ans",
-            "Donne-moi plus d'infos sur ce sujet"
+            "Explique à partir de là ce X dit",
+            "Résume la conversation avant et après ça",
         ]
-
         # Requête
         self.request = discord.ui.TextInput(
             label="Votre requête",
@@ -260,7 +259,7 @@ class AskCtxAgent:
         before: int
         after: int
 
-    async def get_retrieve(self) -> None:
+    async def ask_messages_to_retrieve(self) -> None:
         """Récupère la qté de messages à récupérer avant et après le message original."""
         response = await self.client.beta.chat.completions.parse(
             model=self.model,
@@ -270,6 +269,7 @@ class AskCtxAgent:
         if not response.choices[0].message.parsed:
             return f"Erreur dans la détermination des messages à récupérer."
         self.before, self.after = response.choices[0].message.parsed.before, response.choices[0].message.parsed.after
+        print(f"Avant : {self.before}, Après : {self.after}")
 
     async def get_messages(self) -> list[discord.Message]:
         """Récupère les messages à récupérer avant et après le message original."""
@@ -366,7 +366,7 @@ class Main(commands.Cog):
         self.data.map_builders(discord.Guild, guild_config, guild_summary)
 
         self.ctx_ask_agent = app_commands.ContextMenu(
-            name="Demander à MARIA",
+            name="Demande contexuelle",
             callback=self.ask_agent_callback)
         self.bot.tree.add_command(self.ctx_ask_agent)
 
@@ -790,12 +790,15 @@ class Main(commands.Cog):
             return
         
         agent = AskCtxAgent(self._gptclient, message, request)
+        followup = await interaction.followup.send("*Lecture des messages...*", ephemeral=True)
+        await agent.ask_messages_to_retrieve()
+        await followup.edit(content=f"*Génération d'une réponse...*")
         response, nb_messages = await agent.get_main_response()
         if nb_messages > 0:
             text = f"-# A partir de {nb_messages} messages\n*{response}*"
         else:
             text = f"***{response}***"
-        await interaction.followup.send(text, ephemeral=True)
+        await followup.edit(content=text)
 
     # COMMANDES >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
