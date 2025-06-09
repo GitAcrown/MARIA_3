@@ -704,15 +704,12 @@ class Main(commands.Cog):
         :param nb_messages: Nombre de messages à résumer avant la commande
         """
         channel = interaction.channel
-        messages = channel.history(limit=nb_messages)
-        if not messages:
-            await interaction.response.send_message("Aucun message trouvé.", ephemeral=True)
-            return
-        messages = list(messages)
-        summ_agent = self.get_summary_agent(channel)
-        for message in messages:
-            await summ_agent.add_user_message(message)
-        agentsummary = await summ_agent.summarize_history()
+        agent = SummaryAgent(self._gptclient)
+        async for message in channel.history(limit=nb_messages):
+            if message.author.bot:
+                continue
+            await agent.add_user_message(message)
+        agentsummary = await agent.summarize_history()
         embed = discord.Embed(title="Résumé des messages", description=agentsummary.text, color=interaction.guild.me.color)
         embed.add_field(name="Auteurs", value=", ".join([f"<@{author_id}>" for author_id in agentsummary.authors]), inline=False)
         start, end = agentsummary.start_time.strftime('%d/%m/%Y %H:%M'), agentsummary.end_time.strftime('%d/%m/%Y %H:%M')
@@ -736,6 +733,7 @@ class Main(commands.Cog):
             await interaction.response.send_message(f"**MODE DE RÉPONSE MODIFIÉ** ⸱ *{ANSWER_MODES[mode]}*", ephemeral=True)
 
     @settings_group.command(name='attention-span')
+    @app_commands.rename(span='durée')
     async def attention_span(self, interaction: Interaction, span: app_commands.Range[int, 10, 300]):
         """Définit la durée d'attention du bot sur un salon lorsque le mode de réponse est AUTO.
         
@@ -745,6 +743,7 @@ class Main(commands.Cog):
         await interaction.response.send_message(f"**DURÉE D'ATTENTION MODIFIÉE** ⸱ L'IA gardera son attention sur le dernier utilisateur pendant {span} secondes.", ephemeral=True)
 
     @settings_group.command(name='activity-threshold')
+    @app_commands.rename(threshold='seuil')
     async def activity_threshold(self, interaction: Interaction, threshold: app_commands.Range[int, 1, 100]):
         """Définit le seuil d'activité d'un salon nécessaire pour que le bot ait besoin de répondre en réponse directe.
         
@@ -754,6 +753,7 @@ class Main(commands.Cog):
         await interaction.response.send_message(f"**SEUIL D'ACTIVITÉ MODIFIÉ** ⸱ Réglé sur *{threshold}* messages par minute", ephemeral=True)
 
     @settings_group.command(name='enable-summary')
+    @app_commands.rename(toggle='activer')
     async def enable_summary(self, interaction: Interaction, toggle: bool):
         """Autorise ou non le bot à effectuer des résumés automatiques des conversations afin d'enrichir sa mémoire.
         
