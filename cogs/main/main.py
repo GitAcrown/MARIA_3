@@ -239,7 +239,7 @@ class AskCtxAgent:
         self.retrieve_prompt = f"""
         Estime la quantité de messages à récupérer avant et après le message fourni par l'utilisateur afin de satisfaire au mieux la demande de ce dernier.
         Tu dois répondre dans un format JSON avec les clés 'before' et 'after' et les valeurs du nombre de messages à récupérer avant et après la demande de l'utilisateur et SEULEMENT ces nombres.
-        Tu ne peux dépasser 100 messages avant ou après le message fourni. Le contenu de celui-ci t'es fourni ci-dessous.
+        Tu ne peux dépasser 256 messages au total (avant + après + le message original).
 
         CONTENU DU MESSAGE : {message.clean_content}
         DEMANDE DE L'UTILISATEUR : '{query}'
@@ -259,38 +259,51 @@ class AskCtxAgent:
         before: int
         after: int
 
-    async def ask_messages_to_retrieve(self) -> None:
+    async def ask_messages_to_retrieve(self, too_many_messages: bool = False) -> None:
         """Récupère la qté de messages à récupérer avant et après le message original."""
+        messages = [{"role": "developer", "content": self.retrieve_prompt}]
+        if too_many_messages:
+            messages.append({"role": "assistant", "content": "ERREUR - La requête précédente est trop longue, veille à ne pas dépasser 256 messages au total (avant + après + le message original)."})
+
         response = await self.client.beta.chat.completions.parse(
             model=self.model,
-            messages=[{"role": "developer", "content": self.retrieve_prompt}],
+            messages=messages,
             response_format=self.MessageRetrieve
         )
         if not response.choices[0].message.parsed:
             return f"Erreur dans la détermination des messages à récupérer."
         self.before, self.after = response.choices[0].message.parsed.before, response.choices[0].message.parsed.after
-        print(f"Avant : {self.before}, Après : {self.after}")
+        if self.before + self.after + 1 > 256 and not too_many_messages:
+            return await self.ask_messages_to_retrieve(too_many_messages=True)
+        elif self.before + self.after + 1 > 256 and too_many_messages:
+            self.before, self.after = 0, 0
 
     async def get_messages(self) -> list[discord.Message]:
         """Récupère les messages à récupérer avant et après le message original."""
-        self.before = min(self.before, 100)
-        self.after = min(self.after, 100)
+        max_tokens_per_loop = 10000
 
         before_msg = []
+        total_tokens = 0
         async for m in self.original_message.channel.history(before=self.original_message, limit=self.before):
             before_msg.append(m)
+            total_tokens += len(GPT_TOKENIZER.encode(m.clean_content))
+            if total_tokens > max_tokens_per_loop:
+                break
         after_msg = []
         async for m in self.original_message.channel.history(after=self.original_message, limit=self.after):
             after_msg.append(m)
+            total_tokens += len(GPT_TOKENIZER.encode(m.clean_content))
+            if total_tokens > max_tokens_per_loop:
+                break
         all_messages = before_msg[::-1] + [self.original_message] + after_msg
         return all_messages
 
     async def get_main_response(self) -> tuple[str, int]:
         """Récupère la réponse à la requête principale."""
         messages = await self.get_messages()
-        print([m.clean_content for m in messages])
         context = [{"role": "user", "content": f"[{datetime.isoformat(m.created_at)}] {m.author.name}: {m.clean_content}"} for m in messages]
         full_context = [{"role": "developer", "content": self.main_prompt}] + context
+
         try:
             response = await self.client.chat.completions.create(
             model=self.model,
