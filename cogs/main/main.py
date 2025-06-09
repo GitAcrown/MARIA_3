@@ -246,7 +246,7 @@ class AskCtxAgent:
         DEMANDE DE L'UTILISATEUR : {query}
         """
 
-    async def fetch_messages(self, before_max: int = 10, after_max: int = 10) -> list[discord.Message]:
+    async def fetch_messages(self, before_max: int = 100, after_max: int = 100) -> list[discord.Message]:
         """Récupère les messages à récupérer avant et après le message original."""
         max_tokens_per_loop = 10000
 
