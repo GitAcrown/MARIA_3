@@ -230,31 +230,13 @@ class GuildChatSession:
         raise ValueError(f"Type de retour invalide: {return_type}")
     
 class AskCtxAgent:
-    def __init__(self, client: AsyncOpenAI, message: discord.Message, query: str):
+    def __init__(self, client: AsyncOpenAI, original_message: discord.Message, query: str):
         self.client = client
         self.model = "gpt-4.1-nano"
-        self.original_message = message
+        self.original_message = original_message
 
-        # Prompt pour déterminer la qté de messages à récupérer
-        self.retrieve_prompt = f"""
-        Estime la quantité de messages à récupérer avant et après le message fourni par l'utilisateur afin de satisfaire au mieux la demande de ce dernier.
-        Tu ne peux dépasser 256 messages au total (avant + après + le message original) mais n'hésite pas à en prendre le plus possible quand nécessaire.
-
-        EXEMPLES (non exhaustif) : 
-        - "Résume la conversation AVANT ça" -> (before=100, after=0)
-        - "Résume la conversation APRÈS ça" -> (before=0, after=100)
-        - "Traduit ce message en anglais" -> (before=0, after=0)
-        - "Explique moi ce que dit X" -> (before=50, after=50)
-
-        CONTENU DU MESSAGE : {message.clean_content}
-        DEMANDE DE L'UTILISATEUR : '{query}'
-
-        Tu dois répondre dans un format JSON valide, avec les clés 'nb_before' (nombre de messages à récupérer avant le message original) et 'nb_after' (nombre de messages à récupérer après le message original).
-        """
-        self.before, self.after = 0, 0
-
-        # Prompt pour répondre à la requête principale
-        self.main_prompt = f"""
+        # Prompt pour répondre à la requête
+        self.sys_prompt = f"""
         A partir de l'historique de messages extrait du salon Discord, réponds de manière la plus concise et pertinente possible à la demande de l'utilisateur.
         Les messages sont fournis dans le format suivant : `[datetime.isoformat(message.created_at)] <author.name> : <message.content>`
         Tu dois répondre en français. Ne recopie pas la demande de l'utilisateur, ne la paraphrasé pas. Si tu ne peux pas répondre à la demande, dis-le clairement.
@@ -262,55 +244,32 @@ class AskCtxAgent:
         DEMANDE DE L'UTILISATEUR : '{query}'
         """
 
-    class MessageRetrieve(BaseModel):
-        nb_before: int
-        nb_after: int
-
-    async def ask_messages_to_retrieve(self, too_many_messages: bool = False) -> None:
-        """Récupère la qté de messages à récupérer avant et après le message original."""
-        messages = [{"role": "developer", "content": self.retrieve_prompt}]
-        if too_many_messages:
-            messages.append({"role": "assistant", "content": "ERREUR - La requête précédente est trop longue, veille à ne pas dépasser 256 messages au total (avant + après + le message original)."})
-
-        response = await self.client.beta.chat.completions.parse(
-            model=self.model,
-            temperature=0.1,
-            messages=messages,
-            response_format=self.MessageRetrieve
-        )
-        if not response.choices[0].message.parsed:
-            return f"Erreur dans la détermination des messages à récupérer."
-        self.before, self.after = response.choices[0].message.parsed.nb_before, response.choices[0].message.parsed.nb_after
-        if self.before + self.after + 1 > 256 and not too_many_messages:
-            return await self.ask_messages_to_retrieve(too_many_messages=True)
-        elif self.before + self.after + 1 > 256 and too_many_messages:
-            self.before, self.after = 0, 0
-
-    async def get_messages(self) -> list[discord.Message]:
+    async def fetch_messages(self, before_max: int = 100, after_max: int = 100) -> list[discord.Message]:
         """Récupère les messages à récupérer avant et après le message original."""
         max_tokens_per_loop = 10000
 
         before_msg = []
         total_tokens = 0
-        async for m in self.original_message.channel.history(before=self.original_message, limit=self.before):
-            before_msg.append(m)
-            total_tokens += len(GPT_TOKENIZER.encode(m.clean_content))
-            if total_tokens > max_tokens_per_loop:
-                break
         after_msg = []
-        async for m in self.original_message.channel.history(after=self.original_message, limit=self.after):
+        async for m in self.original_message.channel.history(after=self.original_message, limit=abs(after_max)):
             after_msg.append(m)
             total_tokens += len(GPT_TOKENIZER.encode(m.clean_content))
             if total_tokens > max_tokens_per_loop:
                 break
-        all_messages = before_msg[::-1] + [self.original_message] + after_msg
+        if len(after_msg) < after_max:
+            before_max += after_max - len(after_msg) # On ajoute les messages non utilisés à before_max
+        async for m in self.original_message.channel.history(before=self.original_message, limit=abs(before_max)):
+            before_msg.append(m)
+            total_tokens += len(GPT_TOKENIZER.encode(m.clean_content))
+            if total_tokens > max_tokens_per_loop:
+                break
+        all_messages = before_msg[::-1] + [self.original_message] + after_msg   
         return all_messages
 
-    async def get_main_response(self) -> tuple[str, int]:
+    async def get_response(self, messages: list[discord.Message]) -> tuple[str, int]:
         """Récupère la réponse à la requête principale."""
-        messages = await self.get_messages()
         context = [{"role": "user", "content": f"[{datetime.isoformat(m.created_at)}] {m.author.name}: {m.clean_content}"} for m in messages]
-        full_context = [{"role": "developer", "content": self.main_prompt}] + context
+        full_context = [{"role": "developer", "content": self.sys_prompt}] + context
 
         try:
             response = await self.client.chat.completions.create(
@@ -822,9 +781,9 @@ class Main(commands.Cog):
         
         agent = AskCtxAgent(self._gptclient, message, request)
         followup = await interaction.followup.send("*Lecture des messages...*", ephemeral=True)
-        await agent.ask_messages_to_retrieve()
+        messages = await agent.fetch_messages()
         await followup.edit(content=f"*Génération d'une réponse...*")
-        response, nb_messages = await agent.get_main_response()
+        response, nb_messages = await agent.get_response(messages)
         if nb_messages > 0:
             text = f"-# A partir de {nb_messages} messages\n*{response}*"
         else:
