@@ -67,10 +67,10 @@ class AskAgentPromptModal(discord.ui.Modal, title="Demande contexuelle"):
         super().__init__(timeout=None)
 
         PLACEHOLDER_EXAMPLES = [
-            "Résume la conversation avant ça",
-            "Traduit ce message en anglais",
-            "Explique à partir de là ce X dit",
-            "Résume la conversation avant et après ça",
+            "Résume la conversation",
+            "Traduit le message en anglais",
+            "Explique ce que dit X",
+            "Réponds à la question de X",
         ]
         # Requête
         self.request = discord.ui.TextInput(
@@ -238,10 +238,12 @@ class AskCtxAgent:
         # Prompt pour répondre à la requête
         self.sys_prompt = f"""
         A partir de l'historique de messages extrait du salon Discord, réponds de manière la plus concise et pertinente possible à la demande de l'utilisateur.
-        Les messages sont fournis dans le format suivant : `[datetime.isoformat(message.created_at)] <author.name> : <message.content>`
+        En plus du message original qui est recopié ci-dessous, le contexte est fourni (messages avant et après le message original).
+        Les messages de l'historique sont fournis dans le format suivant : `[datetime.isoformat(message.created_at)] <author.name> : <message.content>`
         Tu dois répondre en français. Ne recopie pas la demande de l'utilisateur, ne la paraphrasé pas. Si tu ne peux pas répondre à la demande, dis-le clairement.
 
-        DEMANDE DE L'UTILISATEUR : '{query}'
+        CONTENU DU MESSAGE ORIGINAL (sans contexte ajouté) : {self.original_message.clean_content}
+        DEMANDE DE L'UTILISATEUR : {query}
         """
 
     async def fetch_messages(self, before_max: int = 100, after_max: int = 100) -> list[discord.Message]:
