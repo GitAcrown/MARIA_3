@@ -709,7 +709,7 @@ class Main(commands.Cog):
         channel = interaction.channel
         await interaction.response.defer()
         agent = SummaryAgent(self._gptclient)
-        async for message in channel.history(limit=nb_messages):
+        async for message in channel.history(limit=nb_messages, oldest_first=True):
             if message.author.bot:
                 continue
             if only_user and message.author != only_user:
