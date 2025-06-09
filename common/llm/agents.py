@@ -72,7 +72,7 @@ Tu dois résumer les messages fournis depuis un salon Discord en un message asse
 - Ignorer ce qui se trouve après '-#' dans les messages.
 
 # RÉPONSE
-Tu dois répondre par un résumé court, concis et précis des messages. Si tu mentionnes des utilisateurs, tu dois les citer par leur pseudonyme et leur ID (entre []).
+Tu dois répondre par un résumé court, concis et précis des messages. Quand tu parles d'un utilisateur, tu dois le citer par son pseudonyme seulement.
 """
 SUMMARY_TEMPERATURE = 0.1
 SUMMARY_COMPLETION_MODEL = 'gpt-4.1-nano'
