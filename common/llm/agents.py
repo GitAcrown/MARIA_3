@@ -76,8 +76,8 @@ Tu dois répondre par un résumé court, concis et précis des messages. Si tu m
 """
 SUMMARY_TEMPERATURE = 0.1
 SUMMARY_COMPLETION_MODEL = 'gpt-4.1-nano'
-SUMMARY_MAX_COMPLETION_TOKENS = 512 / 2 # 256 tokens
-SUMMARY_EVERY_N_TOKENS = 512 * 4 # 2k tokens
+SUMMARY_MAX_COMPLETION_TOKENS = 512 # 256 tokens
+SUMMARY_EVERY_N_TOKENS = 512 * 8 # 4k tokens
 
 # Video analysis
 TEMP_DIR = Path('./temp')
