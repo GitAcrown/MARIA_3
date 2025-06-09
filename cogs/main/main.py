@@ -699,7 +699,7 @@ class Main(commands.Cog):
 
     @app_commands.command(name='summary')
     @app_commands.rename(time_range='période', only_user='seulement')
-    async def summary(self, interaction: Interaction, time_range: Literal['10m', '30m', '1h'] = '10m', only_user: discord.Member | None = None):
+    async def summary(self, interaction: Interaction, time_range: Literal['10m', '30m', '1h', '3h'] = '10m', only_user: discord.Member | None = None):
         """Effectue un résumé manuel des derniers messages d'un salon (jusqu'à 1000 messages).
         
         :param time_range: Période de temps à considérer pour le résumé, par défaut 10 minutes
