@@ -698,7 +698,7 @@ class Main(commands.Cog):
         await interaction.response.send_message("**MÉMOIRE RÉINITIALISÉE** ⸱ La mémoire contextuelle de l'assistant a été réinitialisée.", delete_after=30)
 
     @app_commands.command(name='summary')
-    async def summary(self, interaction: Interaction, nb_messages: app_commands.Range[int, 10, 100] = 50):
+    async def summary(self, interaction: Interaction, nb_messages: app_commands.Range[int, 10, 200] = 50):
         """Effectue un résumé manuel des derniers messages d'un salon.
         
         :param nb_messages: Nombre de messages à résumer avant la commande
