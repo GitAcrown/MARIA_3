@@ -278,7 +278,6 @@ class AskCtxAgent:
             messages=messages,
             response_format=self.MessageRetrieve
         )
-        print(response.choices[0].message.parsed)
         if not response.choices[0].message.parsed:
             return f"Erreur dans la détermination des messages à récupérer."
         self.before, self.after = response.choices[0].message.parsed.nb_before, response.choices[0].message.parsed.nb_after
@@ -812,7 +811,8 @@ class Main(commands.Cog):
         """Demander à MARIA de répondre à une requête à partir du contexte  entourant le message sélectionné."""
         if not isinstance(message.channel, (discord.TextChannel, discord.Thread)):
             return await interaction.response.send_message("*Cette commande ne peut être utilisée que dans un salon de discussion.*", ephemeral=True)
-        
+        logger.info(f"ask_agent_callback: {interaction.user.name} -> {message.content}")
+
         prompt_modal = AskAgentPromptModal()
         await interaction.response.send_modal(prompt_modal)
         await prompt_modal.wait()
