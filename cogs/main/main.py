@@ -50,7 +50,6 @@ Tu peux éventuellement mentionner un utilisateur en mettant son ID de cette man
 STATUS_UPDATE_INTERVAL = 30 #MINUTES
 ACTIVITY_MAX_MESSAGES = 10
 SUMMARY_MAX_AGE = timedelta(days=30)
-MANUAL_SUMMARY_MAX_AGE = timedelta(minutes=90)
 
 # PARAMÈTRES =================================================================
 
@@ -699,24 +698,30 @@ class Main(commands.Cog):
         await interaction.response.send_message("**MÉMOIRE RÉINITIALISÉE** ⸱ La mémoire contextuelle de l'assistant a été réinitialisée.", delete_after=30)
 
     @app_commands.command(name='summary')
-    @app_commands.rename(only_user='seulement')
-    async def summary(self, interaction: Interaction, nb_messages: app_commands.Range[int, 10, 200] = 100, only_user: discord.Member | None = None):
-        """Effectue un résumé manuel des derniers messages d'un salon.
+    @app_commands.rename(time_range='période', only_user='seulement')
+    async def summary(self, interaction: Interaction, time_range: Literal['10m', '30m', '1h'] = '10m', only_user: discord.Member | None = None):
+        """Effectue un résumé manuel des derniers messages d'un salon (jusqu'à 1000 messages).
         
-        :param nb_messages: Nombre de messages à consulter pour le résumé, par défaut 100
+        :param time_range: Période de temps à considérer pour le résumé, par défaut 10 minutes
         :param only_user: Si spécifié, ne résumera que les messages de cet utilisateur
         """
+        times = {
+            '10m': timedelta(minutes=10),
+            '30m': timedelta(minutes=30),
+            '1h': timedelta(hours=1),
+        }
         channel = interaction.channel
         await interaction.response.defer()
         agent = SummaryAgent(self._gptclient)
         messages = []
-        async for message in channel.history(limit=nb_messages):
+        async for message in channel.history(limit=1000):
             if message.author.bot:
                 continue
             if only_user and message.author != only_user: continue
-            if message.created_at < interaction.created_at - MANUAL_SUMMARY_MAX_AGE: break
+            if message.created_at < interaction.created_at - times[time_range]:
+                break
             messages.append(message)
-        agent.bulk_load_user_messages(messages[::-1])
+        agent.bulk_load_user_messages(messages)
         agentsummary = await agent.summarize_history()
         total_messages = len(agent._history)
         if only_user:   
