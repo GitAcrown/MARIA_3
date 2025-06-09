@@ -241,6 +241,12 @@ class AskCtxAgent:
         Tu dois répondre dans un format JSON avec les clés 'before' et 'after' et les valeurs du nombre de messages à récupérer avant et après la demande de l'utilisateur et SEULEMENT ces nombres.
         Tu ne peux dépasser 256 messages au total (avant + après + le message original).
 
+        EXEMPLES : 
+        - "Résume la conversation AVANT ça" -> (before ++, after = 0)
+        - "Résume la conversation APRÈS ça" -> (before = 0, after ++)
+        - "Traduit ce message en anglais" -> (before = 0, after = 0)
+        - "Explique moi ce que dit X" -> (before ++, after ++)
+
         CONTENU DU MESSAGE : {message.clean_content}
         DEMANDE DE L'UTILISATEUR : '{query}'
         """
@@ -250,7 +256,7 @@ class AskCtxAgent:
         self.main_prompt = f"""
         A partir de l'historique de messages extrait du salon Discord, réponds de manière la plus concise et pertinente possible à la demande de l'utilisateur.
         Les messages sont fournis dans le format suivant : `[datetime.isoformat(message.created_at)] <author.name> : <message.content>`
-        Tu dois répondre en français. Ne recopie pas la demande de l'utilisateur, ne la paraphrasé pas.
+        Tu dois répondre en français. Ne recopie pas la demande de l'utilisateur, ne la paraphrasé pas. Si tu ne peux pas répondre à la demande, dis-le clairement.
 
         DEMANDE DE L'UTILISATEUR : '{query}'
         """
