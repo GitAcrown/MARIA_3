@@ -708,7 +708,7 @@ class Main(commands.Cog):
         async for message in channel.history(limit=nb_messages):
             if message.author.bot:
                 continue
-            await agent.add_user_message(message)
+            agent.add_user_message(message)
         agentsummary = await agent.summarize_history()
         embed = discord.Embed(title="Résumé des messages", description=agentsummary.text, color=interaction.guild.me.color)
         embed.add_field(name="Auteurs", value=", ".join([f"<@{author_id}>" for author_id in agentsummary.authors]), inline=False)
