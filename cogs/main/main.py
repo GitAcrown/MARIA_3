@@ -709,6 +709,7 @@ class Main(commands.Cog):
             '10m': timedelta(minutes=10),
             '30m': timedelta(minutes=30),
             '1h': timedelta(hours=1),
+            '3h': timedelta(hours=3)
         }
         channel = interaction.channel
         await interaction.response.defer()
