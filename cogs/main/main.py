@@ -50,6 +50,7 @@ Tu peux éventuellement mentionner un utilisateur en mettant son ID de cette man
 STATUS_UPDATE_INTERVAL = 30 #MINUTES
 ACTIVITY_MAX_MESSAGES = 10
 SUMMARY_MAX_AGE = timedelta(days=30)
+MANUAL_SUMMARY_MAX_AGE = timedelta(minutes=90)
 
 # PARAMÈTRES =================================================================
 
@@ -698,10 +699,12 @@ class Main(commands.Cog):
         await interaction.response.send_message("**MÉMOIRE RÉINITIALISÉE** ⸱ La mémoire contextuelle de l'assistant a été réinitialisée.", delete_after=30)
 
     @app_commands.command(name='summary')
-    async def summary(self, interaction: Interaction, nb_messages: app_commands.Range[int, 10, 200] = 50):
+    @app_commands.rename(only_user='seulement')
+    async def summary(self, interaction: Interaction, nb_messages: app_commands.Range[int, 10, 200] = 50, only_user: discord.Member | None = None):
         """Effectue un résumé manuel des derniers messages d'un salon.
         
         :param nb_messages: Nombre de messages à résumer avant la commande
+        :param only_user: Si spécifié, ne résumera que les messages de cet utilisateur
         """
         channel = interaction.channel
         await interaction.response.defer()
@@ -709,10 +712,20 @@ class Main(commands.Cog):
         async for message in channel.history(limit=nb_messages):
             if message.author.bot:
                 continue
+            if only_user and message.author != only_user:
+                continue
+            if message.created_at < interaction.created_at - MANUAL_SUMMARY_MAX_AGE:
+                break
             agent.add_user_message(message)
         agentsummary = await agent.summarize_history()
-        embed = discord.Embed(title=f"Résumé des {nb_messages} derniers messages", description=f'*{agentsummary.text}*', color=interaction.guild.me.color)
-        embed.add_field(name="Participants", value=", ".join([author.name for author in set(agentsummary.authors)]), inline=False)
+        total_messages = len(agent._history)
+        if only_user:   
+            title = f"Résumé des **{total_messages}** derniers messages de **{only_user.name}**"
+        else:
+            title = f"Résumé des **{total_messages}** derniers messages"
+        embed = discord.Embed(title=title, description=f'*{agentsummary.text}*', color=interaction.guild.me.color)
+        if not only_user:
+            embed.add_field(name="Participants", value=", ".join([author.name for author in set(agentsummary.authors)]), inline=False)
         await interaction.followup.send(embed=embed)
 
     settings_group = app_commands.Group(name='settings', description="Paramètres généraux", default_permissions=discord.Permissions(manage_messages=True))
