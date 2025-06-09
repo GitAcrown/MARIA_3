@@ -238,17 +238,18 @@ class AskCtxAgent:
         # Prompt pour déterminer la qté de messages à récupérer
         self.retrieve_prompt = f"""
         Estime la quantité de messages à récupérer avant et après le message fourni par l'utilisateur afin de satisfaire au mieux la demande de ce dernier.
-        Tu dois répondre dans un format JSON avec les clés 'before' et 'after' et les valeurs du nombre de messages à récupérer avant et après la demande de l'utilisateur et SEULEMENT ces nombres.
-        Tu ne peux dépasser 256 messages au total (avant + après + le message original).
+        Tu ne peux dépasser 256 messages au total (avant + après + le message original) mais n'hésite pas à en prendre le plus possible quand nécessaire.
 
-        EXEMPLES : 
-        - "Résume la conversation AVANT ça" -> (before ++, after = 0)
-        - "Résume la conversation APRÈS ça" -> (before = 0, after ++)
-        - "Traduit ce message en anglais" -> (before = 0, after = 0)
-        - "Explique moi ce que dit X" -> (before ++, after ++)
+        EXEMPLES (non exhaustif) : 
+        - "Résume la conversation AVANT ça" -> (before=100, after=0)
+        - "Résume la conversation APRÈS ça" -> (before=0, after=100)
+        - "Traduit ce message en anglais" -> (before=0, after=0)
+        - "Explique moi ce que dit X" -> (before=50, after=50)
 
         CONTENU DU MESSAGE : {message.clean_content}
         DEMANDE DE L'UTILISATEUR : '{query}'
+
+        Tu dois répondre dans un format JSON valide, avec les clés 'nb_before' (nombre de messages à récupérer avant le message original) et 'nb_after' (nombre de messages à récupérer après le message original).
         """
         self.before, self.after = 0, 0
 
@@ -262,8 +263,8 @@ class AskCtxAgent:
         """
 
     class MessageRetrieve(BaseModel):
-        before: int
-        after: int
+        nb_before: int
+        nb_after: int
 
     async def ask_messages_to_retrieve(self, too_many_messages: bool = False) -> None:
         """Récupère la qté de messages à récupérer avant et après le message original."""
@@ -273,12 +274,14 @@ class AskCtxAgent:
 
         response = await self.client.beta.chat.completions.parse(
             model=self.model,
+            temperature=0.1,
             messages=messages,
             response_format=self.MessageRetrieve
         )
+        print(response.choices[0].message.parsed)
         if not response.choices[0].message.parsed:
             return f"Erreur dans la détermination des messages à récupérer."
-        self.before, self.after = response.choices[0].message.parsed.before, response.choices[0].message.parsed.after
+        self.before, self.after = response.choices[0].message.parsed.nb_before, response.choices[0].message.parsed.nb_after
         if self.before + self.after + 1 > 256 and not too_many_messages:
             return await self.ask_messages_to_retrieve(too_many_messages=True)
         elif self.before + self.after + 1 > 256 and too_many_messages:
@@ -749,7 +752,10 @@ class Main(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message_edit(self, before: discord.Message, after: discord.Message):
-        config = self.get_guild_config(before.guild)
+        if not isinstance(after.channel, (discord.TextChannel, discord.Thread)):
+            return
+        
+        config = self.get_guild_config(after.guild)
         if not bool(config['enable_summary']):
             return
         
@@ -790,6 +796,9 @@ class Main(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message_delete(self, message: discord.Message):
+        if not isinstance(message.channel, (discord.TextChannel, discord.Thread)):
+            return
+        
         config = self.get_guild_config(message.guild)
         if not bool(config['enable_summary']):
             return
@@ -801,6 +810,9 @@ class Main(commands.Cog):
     
     async def ask_agent_callback(self, interaction: Interaction, message: discord.Message):
         """Demander à MARIA de répondre à une requête à partir du contexte  entourant le message sélectionné."""
+        if not isinstance(message.channel, (discord.TextChannel, discord.Thread)):
+            return await interaction.response.send_message("*Cette commande ne peut être utilisée que dans un salon de discussion.*", ephemeral=True)
+        
         prompt_modal = AskAgentPromptModal()
         await interaction.response.send_modal(prompt_modal)
         await prompt_modal.wait()
