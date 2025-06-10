@@ -495,8 +495,7 @@ class Main(commands.Cog):
                 return False
             return True
         
-        emoji_reply = bool(config['emoji_mention_reply'])
-        if config['answer_mode'] == 'GREEDY' or emoji_reply: # SEULEMENT mode GREEDY = On répond aussi si le bot est mentionné indirectement (mention de nom ou display_name en regex)
+        if config['answer_mode'] == 'GREEDY': # SEULEMENT mode GREEDY = On répond aussi si le bot est mentionné indirectement (mention de nom ou display_name en regex)
             s = re.search(rf'\b{re.escape(bot.user.name.lower())}\b', message.content.lower())
             if s:
                 return True
