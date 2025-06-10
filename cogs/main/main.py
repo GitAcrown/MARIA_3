@@ -315,25 +315,6 @@ class Main(commands.Cog):
                     }
                 },
                 function=self._tool_math_eval
-            ),
-            Tool(
-                name='search_summaries',
-                description="Recherche des résumés de conversations passées. Il faut fournir au moins un critère de recherche (mot-clés, auteurs, date approximative).",
-                properties={
-                    'keywords': {
-                        'type': 'string',
-                        'description': "Les mots-clés à rechercher dans les résumés (séparés par des virgules)"
-                    },
-                    'author_ids': {
-                        'type': 'string',
-                        'description': "Les ID des auteurs à rechercher dans les résumés (séparés par des virgules)"
-                    },
-                    'approx_time': {
-                        'type': 'string',
-                        'description': "La date approximative à rechercher dans les résumés (format: YYYY-MM-DD)"
-                    }
-                },
-                function=self._tool_search_summaries
             )
         ]
 
@@ -553,6 +534,8 @@ class Main(commands.Cog):
 
     async def handle_summarization(self, message: discord.Message, type: Literal['user', 'assistant', 'bot']) -> SummaryAgent.AgentSummary | None:
         """Gère la summarization d'un message."""
+        return None 
+    ######################################################################### A REVOIR
         guild = message.guild
         config = self.get_guild_config(guild)
         if not bool(config['enable_summary']):
@@ -658,9 +641,6 @@ class Main(commands.Cog):
             return
         
         if before.content != after.content:
-            summ_agent = self.get_summary_agent(after.channel)
-            if summ_agent.try_removing_message(before):
-                summ_agent.add_user_message(after)
 
             # Redétection de demande de réponse
             if await self.detect_reply(self.bot, after):
@@ -692,18 +672,6 @@ class Main(commands.Cog):
                     await self.handle_summarization(message, type='assistant')
                     group.last_completion.message = message
 
-    @commands.Cog.listener()
-    async def on_message_delete(self, message: discord.Message):
-        if not isinstance(message.channel, (discord.TextChannel, discord.Thread)):
-            return
-        
-        config = self.get_guild_config(message.guild)
-        if not bool(config['enable_summary']):
-            return
-        
-        summ_agent = self.get_summary_agent(message.channel)
-        summ_agent.try_removing_message(message)
-
     # COMMANDES >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
     @app_commands.command(name='info')
@@ -718,7 +686,6 @@ class Main(commands.Cog):
         embed = discord.Embed(title=bot_name, description=desc, color=bot_color)
         embed.add_field(name="Taille du contexte", value=f"{sum(len(g.total_token_count) for g in session.agent._context)} tokens", inline=True)
         embed.add_field(name="Durée d'attention", value=f"{config['attention_span']} secondes", inline=True)
-        embed.add_field(name="Résumé automatique", value=f"{'Activé' if config['enable_summary'] else 'Désactivé'}", inline=True)
         embed.add_field(name="Mode de réponse", value=f"{ANSWER_MODES[config['answer_mode']]}", inline=False)
         embed.set_thumbnail(url=self.bot.user.display_avatar.url)
         embed.set_footer(text=f"Utilisez /settings pour configurer le bot.")
