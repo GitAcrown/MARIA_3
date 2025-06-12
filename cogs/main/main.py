@@ -36,7 +36,6 @@ Tu peux éventuellement mentionner un utilisateur en mettant son ID de cette man
 
 [TOOLS]
 - CALCULS MATHÉMATIQUES: Tu peux évaluer des expressions mathématiques complexes avec précision. Utilise cet outil pour tous calculs, conversions ou résolutions d'équations.
-- RECHERCHE DE RÉSUMÉS: Tu peux rechercher des informations dans des résumés de conversations passées. Utilise cet outil pour trouver des informations sur des sujets spécifiques ou des conversations passées.
 - NAVIGATION WEB: Tu peux effectuer des recherches internet et naviguer sur des pages web (par blocs). Utilise cet outil pour trouver des informations sur des sujets spécifiques ou des conversations passées.
 
 [RESPONSE GUIDELINES]
