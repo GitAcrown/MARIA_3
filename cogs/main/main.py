@@ -601,7 +601,10 @@ class Main(commands.Cog):
         self.update_channel_activity(message)
         await self.handle_summarization(message, type='user')
         if await self.detect_reply(self.bot, message):
-            self.__computed_messages = self.__computed_messages[-99:] + [message.id]
+            self.__computed_messages.append(message.id)
+            if len(self.__computed_messages) > 100:
+                self.__computed_messages.pop(0)
+
             async with channel.typing():
                 session = await self.get_guild_chat_session(channel.guild)
                 group = await session.append_user_message(message)
