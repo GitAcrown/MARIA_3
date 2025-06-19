@@ -294,7 +294,7 @@ class Main(commands.Cog):
         self._monitor_agent = MonitorAgent(self._gptclient)
         self._guilds_sessions : dict[int, GuildChatSession] = {}
         self._summary_agents : dict[int, SummaryAgent] = {}
-        self.__computed_messages : list[int] = [] # Messages déjà traités
+        self._computed_messages : list[int] = [] # Messages déjà traités
 
         self._monitor_attention : dict[int, dict] = {}
         self._channel_activity : dict[int, list[discord.Message]] = {}
@@ -601,9 +601,9 @@ class Main(commands.Cog):
         self.update_channel_activity(message)
         await self.handle_summarization(message, type='user')
         if await self.detect_reply(self.bot, message):
-            self.__computed_messages.append(message.id)
-            if len(self.__computed_messages) > 100:
-                self.__computed_messages.pop(0)
+            self._computed_messages.append(message.id)
+            if len(self._computed_messages) > 100:
+                self._computed_messages.pop(0)
 
             async with channel.typing():
                 session = await self.get_guild_chat_session(channel.guild)
@@ -638,7 +638,7 @@ class Main(commands.Cog):
         if not isinstance(after.channel, (discord.TextChannel, discord.Thread)):
             return
 
-        if after.id in self.__computed_messages: # On ignore les messages déjà traités
+        if before.id in self._computed_messages: # On ignore les messages déjà traités
             return
         
         config = self.get_guild_config(after.guild)
