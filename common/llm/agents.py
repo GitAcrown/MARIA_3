@@ -23,12 +23,12 @@ logger = logging.getLogger(f'MARIA3.agents')
 # CONSTANTS -----------------------------------------------------------------
 
 # Chatbot
-CHATBOT_TEMPERATURE = 1.0
+CHATBOT_TEMPERATURE = 0.95
 CHATBOT_COMPLETION_MODEL = 'gpt-4.1'
 CHATBOT_TRANSCRIPTION_MODEL = 'whisper-1'
 CHATBOT_MAX_COMPLETION_TOKENS = 450
-CHATBOT_CONTEXT_WINDOW = 512 * 20 # ~10k tokens
-CHATBOT_MAX_CONTEXT_AGE = timedelta(hours=6)
+CHATBOT_CONTEXT_WINDOW = 512 * 16 # ~10k tokens
+CHATBOT_MAX_CONTEXT_AGE = timedelta(hours=4)
 
 # Monitor
 MONITOR_DEV_PROMPT = """
