@@ -186,9 +186,9 @@ class GuildChatSession:
             ctx_message = UserMessage.from_discord_message(message)
             return self.agent.create_and_insert_group(ctx_message)
     
-    async def get_answer(self) -> str:
+    async def get_answer(self, followup: bool = False) -> str:
         """Récupère la réponse à un message."""
-        group = await self.agent.complete_context()
+        group = await self.agent.complete_context(followup=followup)
         return group.last_completion.full_text
     
     # Transcription audio
@@ -462,32 +462,32 @@ class Main(commands.Cog):
             return True
         return False
 
-    async def detect_reply(self, bot: discord.Client, message: discord.Message) -> bool:
+    async def detect_reply(self, bot: discord.Client, message: discord.Message) -> Literal['ignore', 'answer', 'followup']:
         """Détermine si il faut répondre à un message à partir du mode de réponse du serveur."""
         config = self.get_guild_config(message.guild)
         
         if config['answer_mode'] == 'NONE':
-            return False
+            return 'ignore'
         
         if bot.user.mentioned_in(message): # Modes LAZY, GREEDY et AUTO = On répond si le bot est mentionné directement
             if message.mention_everyone:
-                return False
-            return True
+                return 'ignore'
+            return 'answer'
         
         if config['answer_mode'] == 'GREEDY': # SEULEMENT mode GREEDY = On répond aussi si le bot est mentionné indirectement (mention de nom ou display_name en regex)
             s = re.search(rf'\b{re.escape(bot.user.name.lower())}\b', message.content.lower())
             if s:
-                return True
+                return 'answer'
             s = re.search(rf'\b{re.escape(bot.user.display_name.lower())}\b', message.content.lower())
             if s:
-                return True
-            return False
+                return 'answer'
+            return 'ignore'
         
         if config['answer_mode'] == 'AUTO': # SEULMENT mode AUTO = On répond si le bot est dans l'attention du bot et que Monitor décide de répondre
             if self.check_attention(message):
                 resp = await self._monitor_agent.detect_message_reply(self.bot.user, message)
-                return resp.choice == 'YES'
-        return False
+                return 'followup' if resp.choice == 'YES' else 'ignore'
+        return 'ignore'
 
     # Summary =================================================================
 
@@ -600,7 +600,8 @@ class Main(commands.Cog):
         channel = message.channel
         self.update_channel_activity(message)
         await self.handle_summarization(message, type='user')
-        if await self.detect_reply(self.bot, message):
+        detect = await self.detect_reply(self.bot, message)
+        if detect in ('answer', 'followup'):
             self.__computed_messages.append(message.id)
             if len(self.__computed_messages) > 100:
                 self.__computed_messages.pop(0)
@@ -608,7 +609,7 @@ class Main(commands.Cog):
             async with channel.typing():
                 session = await self.get_guild_chat_session(channel.guild)
                 group = await session.append_user_message(message)
-                response = await session.get_answer()
+                response = await session.get_answer(followup= detect == 'followup')
                 self.register_attention(message)
 
                 headers = []
@@ -648,7 +649,8 @@ class Main(commands.Cog):
         if before.content != after.content:
 
             # Redétection de demande de réponse
-            if await self.detect_reply(self.bot, after):
+            detect = await self.detect_reply(self.bot, after)
+            if detect in ('answer', 'followup'):
                 self.__computed_messages.append(after.id)
                 if len(self.__computed_messages) > 100:
                     self.__computed_messages.pop(0)
@@ -656,7 +658,7 @@ class Main(commands.Cog):
                 async with after.channel.typing():
                     session = await self.get_guild_chat_session(after.guild)
                     group = await session.append_user_message(after)
-                    response = await session.get_answer()
+                    response = await session.get_answer(followup= detect == 'followup')
                     self.register_attention(after)
 
                     headers = []

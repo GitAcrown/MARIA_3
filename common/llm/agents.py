@@ -25,6 +25,7 @@ logger = logging.getLogger(f'MARIA3.agents')
 # Chatbot
 CHATBOT_TEMPERATURE = 0.95
 CHATBOT_COMPLETION_MODEL = 'gpt-4.1'
+CHATBOT_COMPLETION_FOLLOWUP_MODEL = 'gpt-4.1-mini'
 CHATBOT_TRANSCRIPTION_MODEL = 'whisper-1'
 CHATBOT_MAX_COMPLETION_TOKENS = 450
 CHATBOT_CONTEXT_WINDOW = 512 * 16 # ~10k tokens
@@ -126,6 +127,7 @@ class ChatbotAgent(GPTAgent):
                  temperature: float = CHATBOT_TEMPERATURE,
                  *,
                  completion_model: str = CHATBOT_COMPLETION_MODEL,
+                 followup_completion_model: str = CHATBOT_COMPLETION_FOLLOWUP_MODEL,
                  transcription_model: str = CHATBOT_TRANSCRIPTION_MODEL,
                  max_completion_tokens: int = CHATBOT_MAX_COMPLETION_TOKENS,
                  context_window: int = CHATBOT_CONTEXT_WINDOW,
@@ -148,6 +150,7 @@ class ChatbotAgent(GPTAgent):
 
         # Modèles
         self.completion_model = completion_model
+        self.followup_completion_model = followup_completion_model
         self.transcription_model = transcription_model
 
         # Contexte
@@ -282,7 +285,7 @@ class ChatbotAgent(GPTAgent):
         return tool_responses
     
     # Complétion ----------------------------------------------------
-    async def complete_context(self) -> MessageGroup:
+    async def complete_context(self, followup: bool = False) -> MessageGroup:
         """Exécute une complétion de texte avec le modèle OpenAI et renvoie la réponse.
         
         :return: Groupe de messages contenant la réponse de l'assistant et les éventuelles réponses d'outils
@@ -299,7 +302,7 @@ class ChatbotAgent(GPTAgent):
         
         try:
             completion = await self._client.chat.completions.create(
-                model=self.completion_model,
+                model=self.completion_model if not followup else self.followup_completion_model,
                 messages=payload,
                 temperature=self.temperature,
                 max_tokens=self.max_completion_tokens,
