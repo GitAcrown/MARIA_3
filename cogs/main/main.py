@@ -3,8 +3,6 @@ import logging
 import os
 import random
 import re
-import builtins
-import signal
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable, Literal
@@ -36,14 +34,14 @@ Tu peux éventuellement mentionner un utilisateur en mettant son ID de cette man
 - Jour de la semaine: {weekday}
 
 [TOOLS]
-- EXECUTION DE CODE: Tu peux exécuter du code Python pour effectuer des calculs ou des opérations complexes. Utilise cet outil pour les tâches nécessitant des calculs mathématiques, des analyses de données ou des opérations logiques.
+- CALCULS MATHÉMATIQUES: Tu peux évaluer des expressions mathématiques complexes avec précision. Utilise cet outil pour tous calculs, conversions ou résolutions d'équations.
 - NAVIGATION WEB: Tu peux effectuer des recherches internet Google et extraire le contenu d'une page web. Utilise cet outil dès que nécessaire afin d'obtenir des informations à jour et d'enrichir tes réponses.
 
 [RESPONSE GUIDELINES]
-- Reste la plus concise possible dans tes réponses, va droit au but. Ne fais pas de recommandations ou de suggestions si ce n'est pas explicitement demandé.
+- Reste la plus concise possible dans tes réponses, va droit au but. Evite de proposer des services supplémentaires à la fin de tes réponses.
 - Si tu ne sais pas répondre à une question, recherche sur internet puis si tu ne trouves pas, dis-le clairement.
 - Prend un ton amical et familier, comme si on était entre amis.
-- Utilise le formatage Markdown disponible dans Discord pour tes réponses si besoin. Englobe le code ou les tableaux dans des balises de code (```) pour une meilleure lisibilité. Utilise "> " pour les courtes citations.
+- Utilise le formatage Markdown disponible dans Discord pour tes réponses si besoin.
 """
 
 STATUS_UPDATE_INTERVAL = 30 #MINUTES
@@ -306,15 +304,15 @@ class Main(commands.Cog):
         # Outils
         self.AGENT_TOOLS = [
             Tool(
-                name='code_execution',
-                description="Exécute du code Python de manière sécurisée et renvoie le résultat",
+                name='math_eval',
+                description="Évalue une expression mathématique. Utilise la syntaxe Python standard avec les opérateurs mathématiques classiques.",
                 properties={
-                    'code': {
+                    'expression': {
                         'type': 'string',
-                        'description': "Le code Python à exécuter. Ne SURTOUT pas inclure de bibliothèques externes ou de fonctions dangereuses."
+                        'description': "L'expression mathématique à évaluer"
                     }
                 },
-                function=self._tool_exec_code
+                function=self._tool_math_eval
             )
         ]
 
@@ -388,74 +386,6 @@ class Main(commands.Cog):
             return ToolResponseMessage({'result': result}, tool_call.data['id'], header=f"Calcul de l'expression `{expression}`")
         except Exception as e:
             return ToolResponseMessage({'error': str(e)}, tool_call.data['id'])
-        
-    # Exécution de code (safe)
-    SAFE_BUILTINS = {
-        'print': print,
-        'len': len,
-        'range': range,
-        'int': int,
-        'float': float,
-        'str': str,
-        'bool': bool,
-        'list': list,
-        'dict': dict,
-        'enumerate': enumerate,
-        'zip': zip,
-        'min': min,
-        'max': max,
-        'sum': sum,
-        'abs': abs,
-        'round': round,
-        'sorted': sorted
-    }
-
-    class TimeoutException(Exception):
-        pass
-
-    def handler(self, signum, _frame):
-        """Handler pour le signal d'interruption."""
-        raise Main.TimeoutException("Exécution de code interrompue par le bot.")
-
-    def safe_exec(self, user_code: str) -> str:
-        # Protection contre les mots dangereux
-        forbidden_keywords = [
-            "import", "__", "open", "eval", "exec", "os", "sys",
-            "compile", "globals", "locals", "input", "exit", "quit"
-        ]
-        if any(kw in user_code for kw in forbidden_keywords):
-            return "Code interdit : des mots dangereux ont été détectés dans le code."
-
-        # Préparer les environnements safe
-        safe_globals = {"__builtins__": Main.SAFE_BUILTINS.copy()}
-        safe_locals = {}
-
-        # Mettre en place le timeout
-        signal.signal(signal.SIGALRM, Main.handler)
-        signal.alarm(2)  # Limite à 2 secondes
-
-        try:
-            val = exec(user_code, safe_globals, safe_locals)
-            signal.alarm(0)  # Désactiver l'alarme
-            return str(safe_locals) if val is None else str(val)
-        except Main.TimeoutException:
-            signal.alarm(0)
-            return "Exécution de code interrompue (temps d'exécution dépassé)."
-        except Exception as e:
-            signal.alarm(0)  # Désactiver l'alarme
-            return f"Erreur lors de l'exécution du code : {str(e)}"
-
-    def _tool_exec_code(self, tool_call: ToolCall, context: MessageGroup) -> ToolResponseMessage:
-        user_code = tool_call.arguments.get('code')
-        if not user_code:
-            return ToolResponseMessage({'error': 'Aucun code fourni.'}, tool_call.data['id'])
-        
-        # Exécuter le code de manière sécurisée
-        result = self.safe_exec(user_code)
-        logger.info(f"i --- Exécution de code Python : {user_code[:50]}... -> {result[:50]}...")
-        
-        # Retourner le résultat
-        return ToolResponseMessage({'result': result}, tool_call.data['id'], header="Exécution de code Python")
         
     # Recherche de résumés
     def _tool_search_summaries(self, tool_call: ToolCall, context: MessageGroup) -> ToolResponseMessage:
