@@ -10,7 +10,7 @@ import numexpr as ne
 
 import discord
 from discord import Interaction, app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 from moviepy import VideoFileClip
 from openai import AsyncOpenAI
 
@@ -45,6 +45,7 @@ Si tu ne sais pas, recherche sur internet. Si toujours aucune réponse, dis-le c
 
 # PARAMETRES -----------------------------------------------------
 
+STATUS_UPDATE_INTERVAL = 60  # Intervalle de mise à jour du statut en minutes
 VALID_CHATBOT_CHANNELS = Union[discord.TextChannel, discord.VoiceChannel, discord.Thread]
 MAX_EDITION_AGE = timedelta(minutes=2)  # Age maximal des messages pour l'édition
 
@@ -75,6 +76,41 @@ class UserInfoModal(discord.ui.Modal, title="Préférences et infos"):
         return await interaction.response.send_message(f"**Erreur** × {error}", ephemeral=True)
 
 # CLASSES -----------------------------------------------------
+
+class StatusUpdaterAgent:
+    def __init__(self, client: AsyncOpenAI):
+        self.client = client
+        self.model = "gpt-4.1-nano"
+        self.system_prompt = """
+        Tu dois créer un court texte de statut Discord (en 3-4 mots maximum) en français pour un chatbot IA qui se genre au féminin. 
+        Le statut doit refléter ta fonction de chatbot IA et représenter une action ou un état d'esprit. Il doit être original, humoristique, et peut inclure du langage familier/mature si approprié.
+        Les références pop culture, geek ou memes internet sont encouragées, de même que les jeux de mots etc.
+        Pas d'emojis ni de ponctuation.
+        
+        EXEMPLES:
+        - "En mode chill"
+        - "Asimov approuve"
+        - "Dans la matrice"
+        - "Lit des fanfics"
+        - "Hackant l'URSSAF"
+        
+        La réponse doit être un JSON avec la clé "status" contenant le texte du statut, sans autres informations.
+        """
+
+    class MessageStatus(BaseModel):
+        status: str
+
+    async def get_status(self) -> str:
+        """Récupère un statut en fonction de l'humeur."""
+        prompt = self.system_prompt
+        response = await self.client.beta.chat.completions.parse(
+            model=self.model,
+            messages=[{"role": "developer", "content": prompt}],
+            response_format=self.MessageStatus
+        )
+        if not response.choices[0].message.parsed:
+            raise Exception("Erreur lors de la récupération du statut.")
+        return response.choices[0].message.parsed.status
 
 class ChannelChatSession:
     def __init__(self, 
@@ -177,6 +213,9 @@ class Chat(commands.Cog):
             api_key=self.bot.config['OPENAI_API_KEY']
         )
         self._opportunistic_agent = OpportunisticAgent(client=self._gptclient)
+        self._status_updater_agent = StatusUpdaterAgent(self._gptclient)
+        
+        self.update_status.start()
         
         # Sessions de chat
         self._SESSIONS : dict[int, ChannelChatSession] = {}
@@ -211,8 +250,27 @@ class Chat(commands.Cog):
         ]
         
     async def cog_unload(self):
+        # Arrêt de la tâche de mise à jour du statut
+        await self.update_status.stop()
+        # Fermeture des clients
         await self._gptclient.close()
+        await self._opportunistic_agent.client.close()
+        await self._status_updater_agent.client.close()
+        # Fermeture de la base de données
         self.data.close_all()
+        
+    # Loop ====================================================================
+
+    # Mise à jour du statut à intervalle régulier
+    @tasks.loop(minutes=STATUS_UPDATE_INTERVAL)
+    async def update_status(self):
+        new_status = await self._status_updater_agent.get_status()
+        await self.bot.change_presence(activity=discord.Activity(type=discord.ActivityType.custom, name='custom', state=new_status))
+        logger.info(f"i --- Statut mis à jour : {new_status}")
+        
+    @update_status.before_loop
+    async def before_update_status(self):
+        await self.bot.wait_until_ready()  
         
     # DB -------------------------------------------------
     
@@ -359,7 +417,6 @@ class Chat(commands.Cog):
             # On vérifie le score d'opportunité si en mode opportuniste
             if mode == 'opportunistic':
                 score = await self._opportunistic_agent.score_message(message)
-                print(f"Score d'opportunité pour {message.id}: {score}")
                 threshold = self.get_guild_config(message.guild, 'opportunist_threshold', int)
                 if score < threshold:
                     return False
