@@ -22,7 +22,6 @@ from common.llm.classes import *
 logger = logging.getLogger(f'MARIA3.{__name__.split(".")[-1]}')
 
 PROPOSAL_EMOJI = '<:suggestion:1399507101814096004>'
-FALLBACK_EMOJI = '💬'  # Emoji de fallback si l'emoji personnalisé n'est pas disponible
 PROPOSAL_TYPES = Literal['audio_transcription']
 
 # CLASSES ----------------------------------------------------
@@ -146,27 +145,10 @@ class Auto(commands.Cog):
         if self.has_proposal(message, 'audio_transcription') and not self.get_proposal_status(message, 'audio_transcription'):
             # Si la proposition n'a pas été traitée, on supprime la réaction
             try:
-                emoji = self.get_proposal_emoji(message.guild)
-                await message.clear_reaction(emoji)
+                await message.clear_reaction(PROPOSAL_EMOJI)
             except (discord.Forbidden, discord.NotFound, discord.HTTPException):
                 pass  # Ignore les erreurs de permissions ou si le message n'existe plus
             self.remove_proposal(message, 'audio_transcription')
-            
-    def get_proposal_emoji(self, guild: discord.Guild) -> str:
-        """Récupère l'emoji de proposition, avec fallback si l'emoji personnalisé n'est pas disponible."""
-        try:
-            # Tente d'extraire l'ID de l'emoji personnalisé
-            if PROPOSAL_EMOJI.startswith('<:') and PROPOSAL_EMOJI.endswith('>'):
-                emoji_id = int(PROPOSAL_EMOJI.split(':')[2][:-1])
-                emoji = discord.utils.get(self.bot.emojis, id=emoji_id)
-                if emoji and emoji.is_usable():
-                    return str(emoji)
-            # Si l'emoji personnalisé n'est pas disponible, utilise le fallback
-            logger.warning(f"Emoji personnalisé {PROPOSAL_EMOJI} non disponible, utilisation du fallback")
-            return FALLBACK_EMOJI
-        except Exception as e:
-            logger.error(f"Erreur lors de la récupération de l'emoji: {e}")
-            return FALLBACK_EMOJI
         
     # LISTENER ----------------------------------------------------
     
@@ -184,29 +166,22 @@ class Auto(commands.Cog):
         if attachments:
             if any(attachment.content_type and attachment.content_type.startswith('audio') for attachment in attachments):
                 # Si le message contient un fichier audio, on transcrit
-                logger.debug(f"Fichier audio détecté dans le message {message.id}")
                 if bool(self.get_guild_config(message.guild, 'suggest_audio_transcription')):
                     expiration = int(self.get_guild_config(message.guild, 'proposal_expiration'))
                     self.add_proposal(message, 'audio_transcription')
-                    logger.info(f"Proposition audio créée pour le message {message.id}")
                     try:
-                        emoji = self.get_proposal_emoji(message.guild)
-                        await message.add_reaction(emoji)
-                        logger.debug(f"Emoji {emoji} ajouté au message {message.id}")
+                        await message.add_reaction(PROPOSAL_EMOJI)
                         # Programme l'expiration de la proposition en arrière-plan
                         asyncio.create_task(self._schedule_proposal_expiration(message, expiration))
                     except (discord.Forbidden, discord.HTTPException) as e:
                         logger.warning(f"Impossible d'ajouter une réaction: {e}")
                         self.remove_proposal(message, 'audio_transcription')
-                else:
-                    logger.debug("Suggestions de transcription audio désactivées")
         else:
             # Si le message n'a pas d'attachement, on vérifie les propositions
             if self.has_proposal(message, 'audio_transcription'):
                 # Si une proposition audio transcription existe, on la supprime
                 try:
-                    emoji = self.get_proposal_emoji(message.guild)
-                    await message.clear_reaction(emoji)
+                    await message.clear_reaction(PROPOSAL_EMOJI)
                 except (discord.Forbidden, discord.NotFound, discord.HTTPException):
                     pass  # Ignore les erreurs de permissions
                 self.remove_proposal(message, 'audio_transcription')
@@ -214,29 +189,20 @@ class Auto(commands.Cog):
     @commands.Cog.listener()
     async def on_reaction_add(self, reaction: discord.Reaction, user: discord.User):
         """Écoute les réactions pour traiter les propositions."""
-        logger.debug(f"Réaction ajoutée: {reaction.emoji} par {user.name}")
-        
         if user.bot:
-            logger.debug("Utilisateur bot ignoré")
             return
         
-        if reaction.emoji != PROPOSAL_EMOJI and str(reaction.emoji) != FALLBACK_EMOJI:
-            logger.debug(f"Emoji différent de {PROPOSAL_EMOJI} ou {FALLBACK_EMOJI}, ignoré")
+        if reaction.emoji != PROPOSAL_EMOJI:
             return
         
         message = reaction.message
-        logger.debug(f"Vérification de la proposition pour le message {message.id}")
-        
         if not self.has_proposal(message, 'audio_transcription'):
-            logger.debug("Aucune proposition trouvée pour ce message")
             return
         
         # Marque la proposition comme étant traitée pour éviter les doubles exécutions
         if self.get_proposal_status(message, 'audio_transcription'):
-            logger.debug("Proposition déjà en cours de traitement")
             return
         
-        logger.info(f"Début de la transcription audio pour le message {message.id}")
         self.set_proposal_status(message, 'audio_transcription', True)
         
         try:
@@ -259,8 +225,7 @@ class Auto(commands.Cog):
         finally:
             # Supprime la proposition et la réaction à la fin
             try:
-                emoji = self.get_proposal_emoji(message.guild)
-                await message.clear_reaction(emoji)
+                await message.clear_reaction(PROPOSAL_EMOJI)
             except discord.Forbidden:
                 # Le bot n'a pas les permissions pour supprimer les réactions
                 logger.warning(f"Permissions insuffisantes pour supprimer les réactions dans {message.guild.name}")
@@ -271,7 +236,6 @@ class Auto(commands.Cog):
                 logger.error(f"Erreur lors de la suppression de la réaction: {e}")
             
             self.remove_proposal(message, 'audio_transcription')
-            logger.info(f"Transcription terminée pour le message {message.id}")
     # COMMANDS ----------------------------------------------------
     
     auto_group = app_commands.Group(name='auto', description="Paramètres des fonctionnalités automatiques de l'IA", default_permissions=discord.Permissions(manage_messages=True))
