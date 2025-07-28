@@ -192,7 +192,7 @@ class Auto(commands.Cog):
         if user.bot:
             return
         
-        if reaction.emoji != PROPOSAL_EMOJI:
+        if reaction.emoji.name != PROPOSAL_EMOJI:
             return
         
         message = reaction.message
