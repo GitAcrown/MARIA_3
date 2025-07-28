@@ -157,7 +157,7 @@ class Auto(commands.Cog):
         if attachments:
             if any(attachment.content_type and attachment.content_type.startswith('audio') for attachment in attachments):
                 # Si le message contient un fichier audio, on transcrit
-                if self.data.get_guild_config(message.guild, 'suggest_audio_transcription', True):
+                if self.get_guild_config(message.guild, 'suggest_audio_transcription', True):
                     expiration = self.get_guild_config(message.guild, 'proposal_expiration', int)
                     self.add_proposal(message, 'audio_transcription')
                     await message.add_reaction(NATIVE_EMOJIS['audio_transcription'])
