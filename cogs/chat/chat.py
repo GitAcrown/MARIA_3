@@ -497,7 +497,7 @@ class Chat(commands.Cog):
         if modal.is_finished():
             if modal.userinfo.value:
                 self.update_user_custom(interaction.user, modal.userinfo.value)
-                await interaction.followup.send(f"**Vos préférences ont été mises à jour** ⸱ `{modal.userinfo.value}`", ephemeral=True)
+                await interaction.followup.send(f"**Vos préférences ont été mises à jour** ⸱ Voici ce que vous avez communiqué :\n```{modal.userinfo.value}```", ephemeral=True)
             else:
                 self.remove_user_custom(interaction.user)
                 await interaction.followup.send("**Vos préférences ont été supprimées**", ephemeral=True)
