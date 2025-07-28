@@ -334,6 +334,8 @@ class ChatbotAgent:
             except OSError:
                 pass
         return transcript.text
+    
+    # Chat completions simples ------------------------------------
 
     async def simple_chat_completion(self, 
                                    messages: list[ContextMessage], 

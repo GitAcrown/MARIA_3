@@ -539,7 +539,7 @@ class Chat(commands.Cog):
             params_info += f"Seuil d'opportunité : `{config['opportunist_threshold']}%`"
         embed.add_field(name="Paramètres globaux", value=params_info, inline=True)
         embed.set_thumbnail(url=self.bot.user.display_avatar.url)
-        embed.set_footer(text=f"Utilisez /settings pour configurer le chatbot")
+        embed.set_footer(text=f"Utilisez /chatbot pour configurer le chatbot")
         await interaction.response.send_message(embed=embed)
         
     @app_commands.command(name='preferences')
@@ -559,7 +559,9 @@ class Chat(commands.Cog):
                 self.remove_user_custom(interaction.user)
                 await interaction.followup.send("**Vos préférences ont été supprimées**", ephemeral=True)
                 
-    @app_commands.command(name='forget')
+    chatbot_settings = app_commands.Group(name='chatbot', description="Paramètres globaux du chatbot", default_permissions=discord.Permissions(manage_messages=True))
+    
+    @chatbot_settings.command(name='forget')
     async def forget(self, interaction: Interaction):
         """Supprime l'historique de conversation interne du chatbot."""
         if interaction.channel.id not in self._SESSIONS:
@@ -568,10 +570,8 @@ class Chat(commands.Cog):
         session = self._SESSIONS[interaction.channel.id]
         session.agent.clear_history()
         await interaction.response.send_message("**Historique de conversation interne supprimé**", ephemeral=True)
-                
-    settings_group = app_commands.Group(name='settings', description="Paramètres globaux du chatbot", default_permissions=discord.Permissions(manage_messages=True))
 
-    @settings_group.command(name='mode')
+    @chatbot_settings.command(name='mode')
     @app_commands.choices(
         mode=[
             app_commands.Choice(name='Désactivé', value='off'),
@@ -586,9 +586,16 @@ class Chat(commands.Cog):
         :param mode: Le mode de réponse du chatbot
         """
         self.set_guild_config(interaction.guild, 'chatbot_mode', mode)
-        await interaction.response.send_message(f"**Mode du chatbot modifié** ⸱ {mode.upper()}\n-# Le seuil de pertinence de réponse est réglable avec `/settings opp_threshold` pour le mode 'OPPORTUNISTE'.", ephemeral=True)
+        session = self._SESSIONS.get(interaction.channel.id)
+        if session:
+            session.answer_modes = mode
+        if mode == 'off':
+            if interaction.channel.id in self._SESSIONS:
+                await self.remove_channel_chat_session(interaction.channel)
+            return await interaction.response.send_message("**Le chatbot est désactivé pour ce canal**", ephemeral=True)
+        await interaction.response.send_message(f"**Mode du chatbot modifié** ⸱ {mode.upper()}\n-# Le seuil de pertinence de réponse est réglable avec `/chatbot opp_threshold` pour le mode 'OPPORTUNISTE'.", ephemeral=True)
         
-    @settings_group.command(name='opp_threshold')
+    @chatbot_settings.command(name='opp_threshold')
     async def set_opportunistic_threshold(self, interaction: Interaction, threshold: app_commands.Range[int, 0, 100] = 50):
         """Configure le seuil d'opportunité au dessus duquel le chatbot répond aux mentions indirectes (en mode 'OPPORTUNISTE')
         
@@ -596,15 +603,6 @@ class Chat(commands.Cog):
         """
         self.set_guild_config(interaction.guild, 'opportunist_threshold', threshold)
         await interaction.response.send_message(f"**Seuil d'opportunité modifié** ⸱ `{threshold}%`\n-# Le chatbot répondra aux mentions indirectes ayant un score d'opportunité supérieur à cette valeur (si le mode est activé).", ephemeral=True)
-    
-    @settings_group.command(name='refresh_status')
-    async def refresh_status(self, interaction: Interaction):
-        """Force la mise à jour du statut du bot."""
-        if not self.update_status.is_running():
-            await self.update_status.start()
-        new_status = await self._status_updater_agent.get_status()
-        await self.bot.change_presence(activity=discord.Activity(type=discord.ActivityType.custom, name='custom', state=new_status))
-        await interaction.response.send_message(f"**Statut mis à jour** ⸱ `{new_status}`", ephemeral=True)
     
 async def setup(bot):
     await bot.add_cog(Chat(bot))
