@@ -21,7 +21,7 @@ from common.llm.classes import *
 
 logger = logging.getLogger(f'MARIA3.{__name__.split(".")[-1]}')
 
-PROPOSAL_EMOJI = '<:suggestion:1399506291977621544>'
+PROPOSAL_EMOJI = '<:suggestion:1399507101814096004>'
 PROPOSAL_TYPES = Literal['audio_transcription']
 
 # CLASSES ----------------------------------------------------
@@ -138,6 +138,16 @@ class Auto(commands.Cog):
     def get_proposal_status(self, message: discord.Message, proposal_type: PROPOSAL_TYPES) -> bool:
         """Récupère le statut d'une proposition de type audio transcription."""
         return self._proposals.get(message.id, {}).get(proposal_type, False)
+    async def _schedule_proposal_expiration(self, message: discord.Message, expiration: int):
+        """Programme l'expiration d'une proposition après un délai donné."""
+        await asyncio.sleep(expiration)
+        if self.has_proposal(message, 'audio_transcription') and not self.get_proposal_status(message, 'audio_transcription'):
+            # Si la proposition n'a pas été traitée, on supprime la réaction
+            try:
+                await message.clear_reaction(PROPOSAL_EMOJI)
+            except (discord.Forbidden, discord.NotFound, discord.HTTPException):
+                pass  # Ignore les erreurs de permissions ou si le message n'existe plus
+            self.remove_proposal(message, 'audio_transcription')
             
     # LISTENER ----------------------------------------------------
     
@@ -158,17 +168,21 @@ class Auto(commands.Cog):
                 if bool(self.get_guild_config(message.guild, 'suggest_audio_transcription')):
                     expiration = int(self.get_guild_config(message.guild, 'proposal_expiration'))
                     self.add_proposal(message, 'audio_transcription')
-                    await message.add_reaction(PROPOSAL_EMOJI)
-                    await asyncio.sleep(expiration)
-                    if self.has_proposal(message, 'audio_transcription'):
-                        # Si la proposition n'a pas été traitée, on supprime la réaction
-                        await message.clear_reaction(PROPOSAL_EMOJI)
+                    try:
+                        await message.add_reaction(PROPOSAL_EMOJI)
+                        # Programme l'expiration de la proposition en arrière-plan
+                        asyncio.create_task(self._schedule_proposal_expiration(message, expiration))
+                    except (discord.Forbidden, discord.HTTPException) as e:
+                        logger.warning(f"Impossible d'ajouter une réaction: {e}")
                         self.remove_proposal(message, 'audio_transcription')
         else:
             # Si le message n'a pas d'attachement, on vérifie les propositions
             if self.has_proposal(message, 'audio_transcription'):
                 # Si une proposition audio transcription existe, on la supprime
-                await message.clear_reaction(PROPOSAL_EMOJI)
+                try:
+                    await message.clear_reaction(PROPOSAL_EMOJI)
+                except (discord.Forbidden, discord.NotFound, discord.HTTPException):
+                    pass  # Ignore les erreurs de permissions
                 self.remove_proposal(message, 'audio_transcription')
                     
     @commands.Cog.listener()
@@ -183,21 +197,43 @@ class Auto(commands.Cog):
         message = reaction.message
         if not self.has_proposal(message, 'audio_transcription'):
             return
-        await message.clear_reaction(reaction.emoji)
         
-        async with message.channel.typing():
-            # Récupère la session de la guilde
-            session = await self.get_guild_agent(message.guild)
+        # Marque la proposition comme étant traitée pour éviter les doubles exécutions
+        if self.get_proposal_status(message, 'audio_transcription'):
+            return
+        self.set_proposal_status(message, 'audio_transcription', True)
+        
+        try:
+            async with message.channel.typing():
+                # Récupère la session de la guilde
+                session = await self.get_guild_agent(message.guild)
+                
+                # Traite la transcription audio
+                transcription = await session.get_transcription(message)
+                if transcription:
+                    content = f">>> {transcription}\n-# Transcription demandée par {user.mention}"
+                    await message.reply(content, mention_author=False, allowed_mentions=discord.AllowedMentions.none())
+                else:
+                    await message.reply("**Aucune transcription disponible pour ce message audio.**", mention_author=False, allowed_mentions=discord.AllowedMentions.none())
+                
+        except Exception as e:
+            logger.error(f"Erreur lors de la transcription audio: {e}")
+            await message.reply("**Erreur lors de la transcription audio.**", mention_author=False, allowed_mentions=discord.AllowedMentions.none())
+        
+        finally:
+            # Supprime la proposition et la réaction à la fin
+            try:
+                await message.clear_reaction(reaction.emoji)
+            except discord.Forbidden:
+                # Le bot n'a pas les permissions pour supprimer les réactions
+                logger.warning(f"Permissions insuffisantes pour supprimer les réactions dans {message.guild.name}")
+            except discord.NotFound:
+                # Le message ou la réaction n'existe plus
+                pass
+            except Exception as e:
+                logger.error(f"Erreur lors de la suppression de la réaction: {e}")
             
-            # Traite la transcription audio
-            transcription = await session.get_transcription(message)
-            if transcription:
-                content = f">>> {transcription}\n-# Transcription demandée par {user.mention}"
-                await message.reply(content, mention_author=False, allowed_mentions=discord.AllowedMentions.none())
-                self.remove_proposal(message, 'audio_transcription')
-            else:
-                await message.reply("**Aucune transcription disponible pour ce message audio.**", mention_author=False, allowed_mentions=discord.AllowedMentions.none())
-            
+            self.remove_proposal(message, 'audio_transcription')
     # COMMANDS ----------------------------------------------------
     
     auto_group = app_commands.Group(name='auto', description="Paramètres des fonctionnalités automatiques de l'IA", default_permissions=discord.Permissions(manage_messages=True))
