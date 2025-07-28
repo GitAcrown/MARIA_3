@@ -28,7 +28,7 @@ MAIN_COMPLETION_MODEL = 'gpt-4.1-mini'
 MAIN_TRANSCRIPTION_MODEL = 'whisper-1'
 MAIN_MAX_COMPLETION_TOKENS = 400
 MAIN_CONTEXT_WINDOW = 512 * 32 # 16k tokens
-MAIN_CONTEXT_AGE = timedelta(hours=1)
+MAIN_CONTEXT_AGE = timedelta(hours=6)
 
 # Opportunistic Chatbot
 OPPORTUNISTIC_PROMPT = "Tu as pour objectif d'attribuer un 'score de pertinence de réponse' (compris entre 0 et 100) au message Discord fourni. Ce score doit permettre de mesurer l'utilité pour une IA (nommée MARIA) de répondre au message concerné. Le score doit être élevé si le message est une interrogation de l'utilisateur comme une demande d'informations (internet ou générale), un avis sur quelque chose ou si une réponse est expressément demandée, mais faible si c'est seulement la mention passive du nom de l'IA. Ta réponse est un JSON suivant ce format : {'score': <score de pertinence entre 0 et 100>}."
