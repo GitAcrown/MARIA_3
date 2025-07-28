@@ -21,7 +21,7 @@ from common.llm.classes import *
 
 logger = logging.getLogger(f'MARIA3.{__name__.split(".")[-1]}')
 
-PROPOSAL_EMOJI = '<:suggestion:1399507101814096004>'
+PROPOSAL_EMOJI = '<:SUGGESTION:1399511988731904101>'
 PROPOSAL_TYPES = Literal['audio_transcription']
 
 # CLASSES ----------------------------------------------------
