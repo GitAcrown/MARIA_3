@@ -4,7 +4,7 @@ Contient les classes utilisées par les agents."""
 import json
 import re
 import inspect
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Callable, Iterable, Literal, Any, Union, Awaitable
 
 import discord
@@ -36,7 +36,8 @@ class MessageContentComponent:
         return not self.__eq__(other)
     
     @property
-    def type(self):
+    def type(self) -> Literal['text', 'image_url']:
+        """Type OpenAI du composant."""
         return self.data.get('type', 'text')
     
 class TextComponent(MessageContentComponent):
@@ -136,6 +137,7 @@ class ContextMessage:
 
     @property
     def token_count(self):
+        """Nombre de tokens dans le message."""
         return sum(component.token_count for component in self.components)
         
     # Contenu --------------------------------
@@ -183,18 +185,22 @@ class ContextMessage:
     # Helpers --------------------------------
     @property
     def contains_text(self) -> bool:
+        """Renvoie True si le message contient au moins un composant de type 'text'."""
         return any(component.type == 'text' for component in self.components)
     
     @property
     def contains_image(self) -> bool:
+        """Renvoie True si le message contient au moins un composant de type 'image_url'."""
         return any(component.type == 'image_url' for component in self.components)
     
     @property
     def attachments_processed(self) -> bool:
+        """Renvoie True si le message ne contient plus d'attachements à traiter."""
         return not self.attachments
     
     @property
     def full_text(self) -> str:
+        """Le texte complet du message, concaténé à partir des composants de type 'text'."""
         return ''.join(component.data['text'] for component in self.components if component.type == 'text')
     
     # Communication avec l'API ---------------
@@ -226,14 +232,17 @@ class AssistantMessage(ContextMessage):
 
     @property
     def finish_reason(self) -> str | None:
+        """Raison de la fin de la réponse de l'assistant."""
         return self.kwargs.get('finish_reason', None)
     
     @property
     def tool_calls(self) -> list['ToolCall']:
+        """Liste des appels d'outils associés à ce message."""
         return [ToolCall.from_message_tool_call(tool_call) for tool_call in self.kwargs.get('tool_calls', [])]
     
     @property
     def is_empty(self) -> bool:
+        """Renvoie True si le message ne contient pas de composants."""
         return not self.components
     
     @classmethod
@@ -273,7 +282,7 @@ class UserMessage(ContextMessage):
 
     @classmethod
     def from_discord_message(cls, message: discord.Message,
-                             context_format: str = '[{message.id}] {message.author.name} ({message.author.id})',
+                             context_format: str = '{message.author.name} ({message.author.id})',
                              include_embeds: bool = True,
                              include_attachments: bool = True,
                              include_stickers: bool = True) -> 'UserMessage':
@@ -340,10 +349,12 @@ class ToolResponseMessage(ContextMessage):
         
     @property
     def is_empty(self) -> bool:
+        """Renvoie True si le message ne contient pas de composants."""
         return not self.components
     
     @property
     def is_error(self) -> bool:
+        """Renvoie True si la réponse de l'outil contient une erreur."""
         return self.response_data.get('error', False)
         
     @property
@@ -357,6 +368,7 @@ class ToolResponseMessage(ContextMessage):
     # Helpers --------------------------------
     @property
     def header(self) -> str:
+        """Renvoie l'en-tête du message, s'il est défini dans les kwargs."""
         return self.kwargs.get('header', '')
     
 # TOOLS ----------------------------------------------------------------------
@@ -370,10 +382,12 @@ class ToolCall:
     
     @property
     def function_name(self) -> str:
+        """Nom de la fonction appelée par l'outil."""
         return self.data['function']['name']
     
     @property
     def arguments(self) -> dict:
+        """Arguments passés à la fonction de l'outil."""
         return json.loads(self.data['function']['arguments'])
     
     @classmethod
@@ -434,14 +448,21 @@ class MessageGroup:
                  **kwargs: Any):
         self.messages = list(messages)
         self.kwargs = kwargs
+        self._initialized_at = datetime.now(timezone.utc)
         
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, MessageGroup):
             return NotImplemented
         return self.messages == other.messages
+
+    @property
+    def created_at(self) -> datetime:
+        """Date de création du groupe."""
+        return self.kwargs.get('created_at', self._initialized_at)
     
     @property
     def total_token_count(self) -> int:
+        """Nombre total de tokens dans les messages du groupe."""
         return sum([m.token_count for m in self.messages])
     
     # Gestion des messages -------------------
@@ -462,10 +483,12 @@ class MessageGroup:
     
     @property
     def last_message(self) -> ContextMessage | None:
+        """Dernier message du groupe."""
         return self.messages[-1] if self.messages else None
     
     @property
     def last_completion(self) -> AssistantMessage | None:
+        """Dernier message de type AssistantMessage du groupe."""
         for m in reversed(self.messages):
             if isinstance(m, AssistantMessage):
                 return m
@@ -474,19 +497,28 @@ class MessageGroup:
     # Utilitaires ---------------------
     @property
     def received_any_response(self) -> bool:
+        """Renvoie True si le groupe contient au moins un message de type AssistantMessage."""
         return any([isinstance(m, AssistantMessage) for m in self.messages])
     
     @property
     def awaiting_response(self) -> bool:
+        """Renvoie True si le dernier message du groupe est de type UserMessage ou ToolResponseMessage."""
         return isinstance(self.last_message, UserMessage) or isinstance(self.last_message, ToolResponseMessage)
     
     @property
     def contains_text(self) -> bool:
+        """Renvoie True si le groupe contient au moins un message avec du texte."""
         return any([m.contains_text for m in self.messages])
     
     @property
     def contains_image(self) -> bool:
+        """Renvoie True si le groupe contient au moins un message avec une image."""
         return any([m.contains_image for m in self.messages])
+    
+    def strip_images(self) -> None:
+        """Supprime les composants d'image des messages du groupe."""
+        for message in self.messages:
+            message.remove_components(*[c for c in message.components if c.type == 'image_url'])
     
     def fetch_author(self) -> discord.User | discord.Member | None:
         for m in self.messages:
