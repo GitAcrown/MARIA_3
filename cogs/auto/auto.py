@@ -21,9 +21,7 @@ from common.llm.classes import *
 
 logger = logging.getLogger(f'MARIA3.{__name__.split(".")[-1]}')
 
-NATIVE_EMOJIS = {
-    'audio_transcription': '<:transcript_audio:1399501329985962114>'
-}
+PROPOSAL_EMOJI = '<:suggestion:1399506291977621544>'
 PROPOSAL_TYPES = Literal['audio_transcription']
 
 # CLASSES ----------------------------------------------------
@@ -160,41 +158,45 @@ class Auto(commands.Cog):
                 if bool(self.get_guild_config(message.guild, 'suggest_audio_transcription')):
                     expiration = int(self.get_guild_config(message.guild, 'proposal_expiration'))
                     self.add_proposal(message, 'audio_transcription')
-                    await message.add_reaction(NATIVE_EMOJIS['audio_transcription'])
+                    await message.add_reaction(PROPOSAL_EMOJI)
                     await asyncio.sleep(expiration)
                     if self.has_proposal(message, 'audio_transcription'):
                         # Si la proposition n'a pas été traitée, on supprime la réaction
-                        await message.clear_reaction(NATIVE_EMOJIS['audio_transcription'])
+                        await message.clear_reaction(PROPOSAL_EMOJI)
                         self.remove_proposal(message, 'audio_transcription')
         else:
             # Si le message n'a pas d'attachement, on vérifie les propositions
             if self.has_proposal(message, 'audio_transcription'):
                 # Si une proposition audio transcription existe, on la supprime
-                await message.clear_reaction(NATIVE_EMOJIS['audio_transcription'])
+                await message.clear_reaction(PROPOSAL_EMOJI)
                 self.remove_proposal(message, 'audio_transcription')
                     
     @commands.Cog.listener()
     async def on_reaction_add(self, reaction: discord.Reaction, user: discord.User):
         """Écoute les réactions pour traiter les propositions."""
-        if user.bot or reaction.emoji != NATIVE_EMOJIS['audio_transcription']:
+        if user.bot:
+            return
+        
+        if reaction.emoji != PROPOSAL_EMOJI:
             return
         
         message = reaction.message
         if not self.has_proposal(message, 'audio_transcription'):
             return
+        await message.clear_reaction(reaction.emoji)
         
-        # Récupère la session de la guilde
-        session = await self.get_guild_agent(message.guild)
-        
-        # Traite la transcription audio
-        transcription = await session.get_transcription(message)
-        if transcription:
-            await message.clear_reaction(NATIVE_EMOJIS['audio_transcription'])
-            content = f">>> {transcription}\n-# Transcription demandée par {user.mention}"
-            await message.reply(content, mention_author=False, allowed_mentions=discord.AllowedMentions.none())
-            self.remove_proposal(message, 'audio_transcription')
-        else:
-            await message.reply("**Aucune transcription disponible pour ce message audio.**", mention_author=False, allowed_mentions=discord.AllowedMentions.none())
+        async with message.channel.typing():
+            # Récupère la session de la guilde
+            session = await self.get_guild_agent(message.guild)
+            
+            # Traite la transcription audio
+            transcription = await session.get_transcription(message)
+            if transcription:
+                content = f">>> {transcription}\n-# Transcription demandée par {user.mention}"
+                await message.reply(content, mention_author=False, allowed_mentions=discord.AllowedMentions.none())
+                self.remove_proposal(message, 'audio_transcription')
+            else:
+                await message.reply("**Aucune transcription disponible pour ce message audio.**", mention_author=False, allowed_mentions=discord.AllowedMentions.none())
             
     # COMMANDS ----------------------------------------------------
     
