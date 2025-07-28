@@ -25,7 +25,6 @@ NATIVE_EMOJIS = {
     'audio_transcription': '<:transcript_audio:1399501329985962114>'
 }
 PROPOSAL_TYPES = Literal['audio_transcription']
-PROPOSAL_EXPIRATION = 300  # 5 minutes
 
 # CLASSES ----------------------------------------------------
 
@@ -71,6 +70,7 @@ class Auto(commands.Cog):
         guild_settings = dataio.DictTableBuilder(
             name='guild_settings',
             default_values={
+                'proposal_expiration': 180,
                 'suggest_audio_transcription': True,
             }
         )
@@ -99,6 +99,17 @@ class Auto(commands.Cog):
         """Supprime la session du bot dans la guilde."""
         if guild.id in self._SESSIONS:
             del self._SESSIONS[guild.id]
+            
+    # CONFIGURATION MANAGEMENT ------------------------------------
+    
+    def get_guild_config(self, guild: discord.Guild, key: str, cast: type):
+        """Récupère la configuration d'une guilde."""
+        return self.data.get(guild).get_dict_value('guild_settings', key, cast)
+    
+    def set_guild_config(self, guild: discord.Guild, key: str, value: Union[str, int, bool]) -> None:
+        """Met à jour la configuration d'une guilde."""
+        self.data.get(guild).set_dict_value('guild_settings', key, value)
+        
             
     # PROPOSALS MANAGEMENT ------------------------------------
     
@@ -142,17 +153,25 @@ class Auto(commands.Cog):
         if isinstance(message.channel, discord.DMChannel):
             return
         
-        # Récupère la session de la guilde
-        session = await self.get_guild_agent(message.guild)
-        
         attachments = message.attachments
         if attachments:
             if any(attachment.content_type and attachment.content_type.startswith('audio') for attachment in attachments):
                 # Si le message contient un fichier audio, on transcrit
                 if self.data.get_guild_config(message.guild, 'suggest_audio_transcription', True):
+                    expiration = self.get_guild_config(message.guild, 'proposal_expiration', int)
                     self.add_proposal(message, 'audio_transcription')
                     await message.add_reaction(NATIVE_EMOJIS['audio_transcription'])
-                    await asyncio.sleep(PROPOSAL_EXPIRATION)
+                    await asyncio.sleep(expiration)
+                    if self.has_proposal(message, 'audio_transcription'):
+                        # Si la proposition n'a pas été traitée, on supprime la réaction
+                        await message.clear_reaction(NATIVE_EMOJIS['audio_transcription'])
+                        self.remove_proposal(message, 'audio_transcription')
+        else:
+            # Si le message n'a pas d'attachement, on vérifie les propositions
+            if self.has_proposal(message, 'audio_transcription'):
+                # Si une proposition audio transcription existe, on la supprime
+                await message.clear_reaction(NATIVE_EMOJIS['audio_transcription'])
+                self.remove_proposal(message, 'audio_transcription')
                     
     @commands.Cog.listener()
     async def on_reaction_add(self, reaction: discord.Reaction, user: discord.User):
@@ -181,10 +200,16 @@ class Auto(commands.Cog):
     
     auto_group = app_commands.Group(name='auto', description="Paramètres des fonctionnalités automatiques de l'IA", default_permissions=discord.Permissions(manage_messages=True))
     
+    @auto_group.command(name='proposal_expiration', description="Modifie la durée de validité des propositions")
+    async def proposal_expiration(self, interaction: Interaction, duration: app_commands.Range[int, 30, 600]):
+        """Modifie la durée de validité des propositions."""
+        self.set_guild_config(interaction.guild, 'proposal_expiration', duration)
+        await interaction.response.send_message(f"**Durée de validité des propositions modifiée** ⸱ `{duration} secondes`", ephemeral=True)
+    
     @auto_group.command(name='transcription', description="Active ou désactive la suggestion de transcription audio")
     async def transcription(self, interaction: Interaction, status: bool):
         """Active ou désactive la suggestion de transcription audio."""
-        self.data.set_guild_config(interaction.guild, 'suggest_audio_transcription', status)
+        self.set_guild_config(interaction.guild, 'suggest_audio_transcription', status)
         if status:
             await interaction.response.send_message("**Suggestions de transcription audio activées**", ephemeral=True)
         else:
