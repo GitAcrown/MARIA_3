@@ -104,7 +104,7 @@ class Auto(commands.Cog):
     
     def get_guild_config(self, guild: discord.Guild, key: str, cast: type):
         """Récupère la configuration d'une guilde."""
-        return self.data.get(guild).get_dict_value('guild_settings', key, cast)
+        return self.data.get(guild).get_dict_value('guild_settings', key, cast=cast)
     
     def set_guild_config(self, guild: discord.Guild, key: str, value: Union[str, int, bool]) -> None:
         """Met à jour la configuration d'une guilde."""
