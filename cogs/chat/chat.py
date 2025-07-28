@@ -597,5 +597,14 @@ class Chat(commands.Cog):
         self.set_guild_config(interaction.guild, 'opportunist_threshold', threshold)
         await interaction.response.send_message(f"**Seuil d'opportunité modifié** ⸱ `{threshold}%`\n-# Le chatbot répondra aux mentions indirectes ayant un score d'opportunité supérieur à cette valeur (si le mode est activé).", ephemeral=True)
     
+    @settings_group.command(name='refresh_status')
+    async def refresh_status(self, interaction: Interaction):
+        """Force la mise à jour du statut du bot."""
+        if not self.update_status.is_running():
+            await self.update_status.start()
+        new_status = await self._status_updater_agent.get_status()
+        await self.bot.change_presence(activity=discord.Activity(type=discord.ActivityType.custom, name='custom', state=new_status))
+        await interaction.response.send_message(f"**Statut mis à jour** ⸱ `{new_status}`", ephemeral=True)
+    
 async def setup(bot):
     await bot.add_cog(Chat(bot))
