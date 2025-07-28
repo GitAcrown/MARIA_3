@@ -102,9 +102,9 @@ class Auto(commands.Cog):
             
     # CONFIGURATION MANAGEMENT ------------------------------------
     
-    def get_guild_config(self, guild: discord.Guild, key: str, cast: type):
+    def get_guild_config(self, guild: discord.Guild, key: str):
         """Récupère la configuration d'une guilde."""
-        return self.data.get(guild).get_dict_value('guild_settings', key, cast=cast)
+        return self.data.get(guild).get_dict_value('guild_settings', key)
     
     def set_guild_config(self, guild: discord.Guild, key: str, value: Union[str, int, bool]) -> None:
         """Met à jour la configuration d'une guilde."""
@@ -157,8 +157,8 @@ class Auto(commands.Cog):
         if attachments:
             if any(attachment.content_type and attachment.content_type.startswith('audio') for attachment in attachments):
                 # Si le message contient un fichier audio, on transcrit
-                if self.get_guild_config(message.guild, 'suggest_audio_transcription', True):
-                    expiration = self.get_guild_config(message.guild, 'proposal_expiration', int)
+                if bool(self.get_guild_config(message.guild, 'suggest_audio_transcription')):
+                    expiration = int(self.get_guild_config(message.guild, 'proposal_expiration'))
                     self.add_proposal(message, 'audio_transcription')
                     await message.add_reaction(NATIVE_EMOJIS['audio_transcription'])
                     await asyncio.sleep(expiration)
