@@ -170,8 +170,25 @@ class Auto(commands.Cog):
         # Traite la transcription audio
         transcription = await session.get_transcription(message)
         if transcription:
+            await message.clear_reaction(NATIVE_EMOJIS['audio_transcription'])
             content = f">>> {transcription}\n-# Transcription demandée par {user.mention}"
             await message.reply(content, mention_author=False, allowed_mentions=discord.AllowedMentions.none())
+            self.remove_proposal(message, 'audio_transcription')
+        else:
+            await message.reply("**Aucune transcription disponible pour ce message audio.**", mention_author=False, allowed_mentions=discord.AllowedMentions.none())
+            
+    # COMMANDS ----------------------------------------------------
+    
+    auto_group = app_commands.Group(name='auto', description="Paramètres des fonctionnalités automatiques de l'IA", default_permissions=discord.Permissions(manage_messages=True))
+    
+    @auto_group.command(name='transcription', description="Active ou désactive la suggestion de transcription audio")
+    async def transcription(self, interaction: Interaction, status: bool):
+        """Active ou désactive la suggestion de transcription audio."""
+        self.data.set_guild_config(interaction.guild, 'suggest_audio_transcription', status)
+        if status:
+            await interaction.response.send_message("**Suggestions de transcription audio activées**", ephemeral=True)
+        else:
+            await interaction.response.send_message("**Suggestions de transcription audio désactivées**", ephemeral=True)
 
 async def setup(bot):
     await bot.add_cog(Auto(bot))
