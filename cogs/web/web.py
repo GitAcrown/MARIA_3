@@ -15,7 +15,7 @@ logger = logging.getLogger(f'MARIA3.{__name__.split(".")[-1]}')
 
 # CONSTANTES ----------------------------------------------------
 
-DEFAULT_CHUNK_SIZE = 2000
+DEFAULT_CHUNK_SIZE = 2500
 DEFAULT_NUM_RESULTS = 5
 DEFAULT_TIMEOUT = 15
 CACHE_EXPIRY_HOURS = 24
