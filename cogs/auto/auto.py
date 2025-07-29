@@ -136,7 +136,10 @@ class MathAnswer:
             return None
         
         try:
-            answer = await self.solve_math(expression)
+            answer = await self.solve_math(expression[0])
+            if not answer:
+                logger.warning(f"Aucune réponse trouvée pour l'expression '{expression[0]}'.")
+                return None
             return f"{expression}={answer}"
         except Exception as e:
             logger.error(f"Erreur lors de la résolution de l'expression '{expression}': {e}")
