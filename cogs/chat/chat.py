@@ -447,7 +447,7 @@ class Chat(commands.Cog):
                 
             tools : list[ToolResponseMessage] = group.get_messages(lambda m: isinstance(m, ToolResponseMessage))
             # Trier par ordre chronologique et supprimer les doublons en préservant l'ordre
-            sorted_tools = sorted(tools, key=lambda t: t.created_at)
+            sorted_tools = sorted(tools, key=lambda t: t._created_at)
             seen_headers = set()
             unique_headers = []
             for trm in sorted_tools:
@@ -507,7 +507,7 @@ class Chat(commands.Cog):
                 
             tools : list[ToolResponseMessage] = group.get_messages(lambda m: isinstance(m, ToolResponseMessage))
             # Trier par ordre chronologique et supprimer les doublons en préservant l'ordre
-            sorted_tools = sorted(tools, key=lambda t: t.created_at)
+            sorted_tools = sorted(tools, key=lambda t: t._created_at)
             seen_headers = set()
             unique_headers = []
             for trm in sorted_tools:
