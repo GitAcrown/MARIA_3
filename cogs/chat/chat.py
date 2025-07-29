@@ -494,7 +494,7 @@ class Chat(commands.Cog):
                 
             tools : list[ToolResponseMessage] = group.get_messages(lambda m: isinstance(m, ToolResponseMessage))
             
-            headers = set([trm.header for trm in tools if trm.header])
+            headers = tuple(set([trm.header for trm in tools if trm.header]))
             if headers:
                 resp = '\n-# ' + '\n-# '.join(headers[::-1]) + '\n' + resp
 
