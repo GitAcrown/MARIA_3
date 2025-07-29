@@ -1,18 +1,13 @@
 import io
 import asyncio
 import logging
-import os
-import random
-import re
-from datetime import datetime, timedelta, timezone
+
 from pathlib import Path
 from typing import Literal, Union
-import numexpr as ne
 
 import discord
 from discord import Interaction, app_commands
-from discord.ext import commands, tasks
-from moviepy import VideoFileClip
+from discord.ext import commands
 from openai import AsyncOpenAI
 
 from common import dataio
