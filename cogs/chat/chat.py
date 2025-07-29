@@ -39,6 +39,7 @@ OUTILS DISPONIBLES:
 - Calculs mathématiques: expressions complexes et conversions
 - Recherche web: informations actuelles via Google
 
+N'hésite pas à utiliser et combiner les outils dès que nécessaire.
 Si tu ne sais pas, recherche sur internet. N'invente pas d'informations. Vérifie les affirmations des utilisateurs si elles sont douteuses."""
 
 # PARAMETRES -----------------------------------------------------
