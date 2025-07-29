@@ -232,15 +232,15 @@ class Auto(commands.Cog):
         expiration = int(self.get_guild_config(message.guild, 'proposal_expiration'))
         
         if '=' in message.content and bool(self.get_guild_config(message.guild, 'suggest_math_answer')):
-            # Si le message contient une expression mathématique, on propose une réponse
-            any_proposal = True
-            try:
-                math_answer = await self._transcription_agent.get_math_answer(message)
-                if math_answer:
+            # On vérifie si le message contient des chiffres et des opérateurs mathématiques
+            if any(char.isdigit() for char in message.content) and any(char in '+-*/%' for char in message.content):
+                # Si le message contient une expression mathématique, on propose une réponse
+                any_proposal = True
+                try:
                     self.add_proposal(message, 'math_answer')
                     await message.add_reaction(PROPOSAL_EMOJI)
-            except Exception as e:
-                logger.error(f"Erreur lors de la proposition de réponse mathématique: {e}")
+                except Exception as e:
+                    logger.error(f"Erreur lors de la proposition de réponse mathématique: {e}")
         
         attachments = message.attachments
         if attachments:
