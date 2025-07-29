@@ -381,7 +381,7 @@ class Chat(commands.Cog):
         return ToolResponseMessage(
             {'user': f'{user.name} (ID:{user.id})', 'infos': infos},
             tool_call.data['id'],
-            header=f"Consultation des infos ***{user.name}***"
+            header=f"Consultation des infos de ***{user.name}***"
         )
         
     def _tool_math_eval(self, tool_call: ToolCall, context: MessageGroup) -> ToolResponseMessage:
