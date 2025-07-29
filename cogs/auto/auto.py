@@ -16,17 +16,22 @@ from common.llm.classes import *
 
 logger = logging.getLogger(f'MARIA3.{__name__.split(".")[-1]}')
 
+# CONSTANTES ----------------------------------------------------
+
+TRANSCRIPTION_MODEL = 'whisper-1'
+MATH_ANSWER_MODEL = 'gpt-4.1-nano'
+
 PROPOSAL_EMOJI = '<:suggestion:1399517830394937664>'
 PROPOSAL_TYPES = Literal['audio_transcription', 'math_answer']
 
 # CLASSES ----------------------------------------------------
-
-class GuildBotSession:
+    
+class AudioTranscription:
     def __init__(self, 
                  cog: 'Auto',
-                 agent: ChatbotAgent):
+                 client: AsyncOpenAI):
         self.cog = cog
-        self.agent = agent
+        self.client = client
     
     # Transcription audio
     async def fetch_message_audio(self, message: discord.Message) -> io.BytesIO | Path | None:
@@ -40,18 +45,100 @@ class GuildBotSession:
                 return buffer
         return None
     
-    async def get_transcription(self, message: discord.Message) -> str:
-        """Transcrit le contenu audio d'un message."""
-        audio = await self.fetch_message_audio(message)
-        if audio is None:
-            return ""
-        # Vérifie si le fichier audio est un fichier vocal Discord
-        transcription = await self.agent.extract_audio_transcript(audio)
-        if transcription is None:
-            return ""
-        # Nettoie la transcription
-        transcription = transcription.strip()
-        return transcription
+    async def get_audio_transcript(self,
+                                        audio_file: io.BytesIO | Path | str,
+                                        *,
+                                        close_binary: bool = True,
+                                        unlink_path: bool = True) -> str:
+        if isinstance(audio_file, io.BytesIO):
+            audio_file.seek(0)
+        try:
+            transcript = await self.client.audio.transcriptions.create(
+                model=TRANSCRIPTION_MODEL,
+                file=audio_file
+            )
+        except openai.BadRequestError as e:
+            logger.error(f"Erreur de transcription : {e}")
+            raise e
+        except openai.OpenAIError as e:
+            logger.error(f"Erreur OpenAI : {e}")
+            raise e
+        except Exception as e:
+            logger.error(f"Erreur inconnue : {e}")
+            raise e
+        
+        if isinstance(audio_file, io.BytesIO) and close_binary:
+            audio_file.close()
+        if isinstance(audio_file, (str, Path)) and unlink_path:
+            try:
+                os.unlink(audio_file)
+            except OSError:
+                pass
+        return transcript.text
+    
+    async def get_transcription(self, message: discord.Message) -> str | None:
+        """Récupère la transcription d'un message audio."""
+        audio_file = await self.fetch_message_audio(message)
+        if not audio_file:
+            return None
+        
+        try:
+            transcript = await self.get_audio_transcript(audio_file)
+            return transcript.strip()
+        except Exception as e:
+            logger.error(f"Erreur lors de la transcription audio : {e}")
+            return None
+        
+class MathAnswer:
+    def __init__(self,
+                 cog: 'Auto',
+                 client: AsyncOpenAI):
+        self.cog = cog
+        self.client = client
+        
+        self.developer_prompt = "Objectif: extraire du message fourni l'expression mathématique et la renvoyer sous la forme d'un JSON suivant le format {'expression': <expression mathématique>}."
+        
+    class MathExpression(BaseModel):
+        """Expression mathématique à évaluer."""
+        expression: str
+        
+    async def solve_math(self, expression: str) -> str:
+        """Évalue une expression mathématique."""
+        try:
+            # Utilise numexpr pour évaluer l'expression mathématique
+            result = ne.evaluate(expression)
+            return str(result)
+        except Exception as e:
+            logger.error(f"Erreur lors de l'évaluation de l'expression '{expression}': {e}")
+            return "Erreur dans l'évaluation de l'expression."
+        
+    async def extract_math_expression(self, message: discord.Message) -> str | None:
+        """Extrait l'expression mathématique d'un message."""
+        if not message.content:
+            return None
+        
+        response = await self.client.beta.chat.completions.parse(
+            model=MATH_ANSWER_MODEL,
+            messages=[{"role": "developer", "content": self.developer_prompt},
+                      {"role": "user", "content": message.content}],
+            response_format=self.MathExpression
+        )
+        if not response.choices[0].message.parsed:
+            raise Exception("Erreur lors de la récupération du statut.")
+        return response.choices[0].message.parsed.expression.strip()
+    
+    async def get_math_answer(self, message: discord.Message) -> str | None:
+        """Récupère la réponse à une question mathématique."""
+        expression = await self.extract_math_expression(message)
+        if not expression:
+            return None
+        
+        try:
+            answer = await self.solve_math(expression)
+            return f"`{expression}={answer}`"
+        except Exception as e:
+            logger.error(f"Erreur lors de la résolution de l'expression '{expression}': {e}")
+            return "Erreur dans la résolution de l'expression mathématique."
 
 # COG ----------------------------------------------------
 class Auto(commands.Cog):
@@ -64,7 +151,8 @@ class Auto(commands.Cog):
             name='guild_settings',
             default_values={
                 'proposal_expiration': 180,
-                'suggest_audio_transcription': True
+                'suggest_audio_transcription': True,
+                'suggest_math_answer': True
             }
         )
         self.data.map_builders(discord.Guild, guild_settings)
@@ -73,25 +161,15 @@ class Auto(commands.Cog):
             api_key=self.bot.config['OPENAI_API_KEY']
         )
         
-        self._SESSIONS : dict[int, GuildBotSession] = {}
+        self._transcription_agent = AudioTranscription(
+            cog=self,
+            client=self._gptclient
+        )
+        self._math_agent = MathAnswer(
+            cog=self,
+            client=self._gptclient
+        )
         self._proposals : dict[int, set[PROPOSAL_TYPES]] = {}
-        
-    # SESSION MANAGEMENT ------------------------------------
-        
-    async def get_guild_agent(self, guild: discord.Guild) -> GuildBotSession:
-        """Recupère ou crée une session pour le bot dans la guilde."""
-        if guild.id not in self._SESSIONS:
-            agent = ChatbotAgent(
-                client=self._gptclient,
-                developer_prompt=""
-            )
-            self._SESSIONS[guild.id] = GuildBotSession(cog=self, agent=agent)
-        return self._SESSIONS[guild.id]
-    
-    async def remove_guild_agent(self, guild: discord.Guild) -> None:
-        """Supprime la session du bot dans la guilde."""
-        if guild.id in self._SESSIONS:
-            del self._SESSIONS[guild.id]
             
     # CONFIGURATION MANAGEMENT ------------------------------------
     
@@ -153,6 +231,17 @@ class Auto(commands.Cog):
         any_proposal = False
         expiration = int(self.get_guild_config(message.guild, 'proposal_expiration'))
         
+        if '=' in message.content and bool(self.get_guild_config(message.guild, 'suggest_math_answer')):
+            # Si le message contient une expression mathématique, on propose une réponse
+            any_proposal = True
+            try:
+                math_answer = await self._transcription_agent.get_math_answer(message)
+                if math_answer:
+                    self.add_proposal(message, 'math_answer')
+                    await message.add_reaction(PROPOSAL_EMOJI)
+            except Exception as e:
+                logger.error(f"Erreur lors de la proposition de réponse mathématique: {e}")
+        
         attachments = message.attachments
         if attachments:
             if any(attachment.content_type and attachment.content_type.startswith('audio') for attachment in attachments):
@@ -191,19 +280,46 @@ class Auto(commands.Cog):
         
         message = reaction.message
         
+        if self.has_proposal(message, 'math_answer'):
+            try:
+                async with message.channel.typing():
+                    # Traite la réponse mathématique
+                    math_answer = await self._math_agent.get_math_answer(message)
+                    if math_answer:
+                        content = f">>> {math_answer}\n-# Réponse mathématique demandée par {user.mention}"
+                        await message.reply(content, mention_author=False, allowed_mentions=discord.AllowedMentions.none())
+                    else:
+                        await message.reply("**Aucune réponse mathématique disponible pour ce message.**", mention_author=False, allowed_mentions=discord.AllowedMentions.none(), delete_after=10)
+                    
+            except Exception as e:
+                logger.error(f"Erreur lors de la réponse mathématique: {e}")
+                await message.reply("**Erreur lors de la réponse mathématique.**", mention_author=False, allowed_mentions=discord.AllowedMentions.none(), delete_after=10)
+            
+            finally:
+                # Supprime la proposition et la réaction à la fin
+                try:
+                    await message.clear_reaction(PROPOSAL_EMOJI)
+                except discord.Forbidden:
+                    # Le bot n'a pas les permissions pour supprimer les réactions
+                    logger.warning(f"Permissions insuffisantes pour supprimer les réactions dans {message.guild.name}")
+                except discord.NotFound:
+                    # Le message ou la réaction n'existe plus
+                    pass
+                except Exception as e:
+                    logger.error(f"Erreur lors de la suppression de la réaction: {e}")
+                
+                self.remove_proposal(message, 'math_answer')
+        
         if self.has_proposal(message, 'audio_transcription'):
             try:
                 async with message.channel.typing():
-                    # Récupère la session de la guilde
-                    session = await self.get_guild_agent(message.guild)
-                    
                     # Traite la transcription audio
-                    transcription = await session.get_transcription(message)
+                    transcription = await self._transcription_agent.get_transcription(message)
                     if transcription:
                         content = f">>> {transcription}\n-# Transcription demandée par {user.mention}"
                         await message.reply(content, mention_author=False, allowed_mentions=discord.AllowedMentions.none())
                     else:
-                        await message.reply("**Aucune transcription disponible pour ce message audio.**", mention_author=False, allowed_mentions=discord.AllowedMentions.none())
+                        await message.reply("**Aucune transcription disponible pour ce message audio.**", mention_author=False, allowed_mentions=discord.AllowedMentions.none(), delete_after=10)
                     
             except Exception as e:
                 logger.error(f"Erreur lors de la transcription audio: {e}")
@@ -246,6 +362,17 @@ class Auto(commands.Cog):
             await interaction.response.send_message("**Suggestions de transcription audio activées**", ephemeral=True)
         else:
             await interaction.response.send_message("**Suggestions de transcription audio désactivées**", ephemeral=True)
+            
+    @auto_group.command(name='calculation')
+    async def calculation(self, interaction: Interaction, status: bool):
+        """Active ou désactive la suggestion de réponse mathématique
+        
+        :param status: `True` pour activer, `False` pour désactiver"""
+        self.set_guild_config(interaction.guild, 'suggest_math_answer', status)
+        if status:
+            await interaction.response.send_message("**Suggestions de réponses mathématiques activées**", ephemeral=True)
+        else:
+            await interaction.response.send_message("**Suggestions de réponses mathématiques désactivées**", ephemeral=True)
 
 async def setup(bot):
     await bot.add_cog(Auto(bot))
