@@ -444,13 +444,17 @@ class Chat(commands.Cog):
                 return
             resp = await session.get_answer()
             headers = []
-            if group.search_for_message_components(lambda c: isinstance(c, MetadataTextComponent) and 'AUDIO' in c.data['text']):
-                headers.append("[+] Contenu audio")
-            if group.search_for_message_components(lambda c: isinstance(c, MetadataTextComponent) and 'VIDEO' in c.data['text']):
-                headers.append("[+] Contenu vidéo")
                 
             tools : list[ToolResponseMessage] = group.get_messages(lambda m: isinstance(m, ToolResponseMessage))
-            headers.extend(list(set([trm.header for trm in tools if trm.header])))
+            # Trier par ordre chronologique et supprimer les doublons en préservant l'ordre
+            sorted_tools = sorted(tools, key=lambda t: t.created_at)
+            seen_headers = set()
+            unique_headers = []
+            for trm in sorted_tools:
+                if trm.header and trm.header not in seen_headers:
+                    unique_headers.append(trm.header)
+                    seen_headers.add(trm.header)
+            headers.extend(unique_headers)
             if headers:
                 resp = '\n-# ' + '\n-# '.join(headers[::-1]) + '\n' + resp
 
@@ -502,7 +506,15 @@ class Chat(commands.Cog):
                 headers.append("[+] Contenu vidéo")
                 
             tools : list[ToolResponseMessage] = group.get_messages(lambda m: isinstance(m, ToolResponseMessage))
-            headers.extend(list(set([trm.header for trm in tools if trm.header])))
+            # Trier par ordre chronologique et supprimer les doublons en préservant l'ordre
+            sorted_tools = sorted(tools, key=lambda t: t.created_at)
+            seen_headers = set()
+            unique_headers = []
+            for trm in sorted_tools:
+                if trm.header and trm.header not in seen_headers:
+                    unique_headers.append(trm.header)
+                    seen_headers.add(trm.header)
+            headers.extend(unique_headers)
             if headers:
                 resp = '\n-# ' + '\n-# '.join(headers[::-1]) + '\n' + resp
 
