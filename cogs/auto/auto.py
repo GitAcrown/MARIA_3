@@ -96,11 +96,12 @@ class MathAnswer:
         self.cog = cog
         self.client = client
         
-        self.developer_prompt = "Objectif: extraire du message fourni l'expression mathématique et la renvoyer sous la forme d'un JSON suivant le format {'expression': <expression mathématique>}."
+        self.developer_prompt = "Objectif: extraire du texte fourni une expression mathématique et déterminer si elle est valide. Renvoyer le tout sous la forme d'un JSON suivant le format {'expression': <expression mathématique>, 'valid': <true ou false>}."
         
     class MathExpression(BaseModel):
         """Expression mathématique à évaluer."""
         expression: str
+        valid: bool
         
     async def solve_math(self, expression: str) -> str:
         """Évalue une expression mathématique."""
@@ -112,7 +113,7 @@ class MathAnswer:
             logger.error(f"Erreur lors de l'évaluation de l'expression '{expression}': {e}")
             return "Erreur dans l'évaluation de l'expression."
         
-    async def extract_math_expression(self, message: discord.Message) -> str | None:
+    async def extract_math_expression(self, message: discord.Message) -> tuple[str, bool] | None:
         """Extrait l'expression mathématique d'un message."""
         if not message.content:
             return None
@@ -125,17 +126,18 @@ class MathAnswer:
         )
         if not response.choices[0].message.parsed:
             raise Exception("Erreur lors de la récupération du statut.")
-        return response.choices[0].message.parsed.expression.strip()
+        return response.choices[0].message.parsed.expression, response.choices[0].message.parsed.valid
     
     async def get_math_answer(self, message: discord.Message) -> str | None:
         """Récupère la réponse à une question mathématique."""
         expression = await self.extract_math_expression(message)
-        if not expression:
+        if not expression or not expression[1]:
+            logger.warning(f"Aucune expression mathématique valide trouvée dans le message {message.id}.")
             return None
         
         try:
             answer = await self.solve_math(expression)
-            return f"`{expression}={answer}`"
+            return f"{expression}={answer}"
         except Exception as e:
             logger.error(f"Erreur lors de la résolution de l'expression '{expression}': {e}")
             return "Erreur dans la résolution de l'expression mathématique."
@@ -286,10 +288,10 @@ class Auto(commands.Cog):
                     # Traite la réponse mathématique
                     math_answer = await self._math_agent.get_math_answer(message)
                     if math_answer:
-                        content = f">>> {math_answer}\n-# Réponse mathématique demandée par {user.mention}"
+                        content = f">>> ```python\n{math_answer}```\n-# Réponse mathématique demandée par {user.mention}"
                         await message.reply(content, mention_author=False, allowed_mentions=discord.AllowedMentions.none())
                     else:
-                        await message.reply("**Aucune réponse mathématique disponible pour ce message.**", mention_author=False, allowed_mentions=discord.AllowedMentions.none(), delete_after=10)
+                        await message.reply("**Le message ne semble pas contenir d'expression mathématique valide.**", mention_author=False, allowed_mentions=discord.AllowedMentions.none(), delete_after=10)
                     
             except Exception as e:
                 logger.error(f"Erreur lors de la réponse mathématique: {e}")
