@@ -291,7 +291,7 @@ class Auto(commands.Cog):
                     # Traite la réponse mathématique
                     math_answer = await self._math_agent.get_math_answer(message)
                     if math_answer:
-                        content = f">>> ```python\n{math_answer}```\n-# Réponse mathématique demandée par {user.mention}"
+                        content = f">>> `{math_answer}`\n-# Réponse mathématique demandée par {user.mention}"
                         await message.reply(content, mention_author=False, allowed_mentions=discord.AllowedMentions.none())
                     else:
                         await message.reply("L'expression mathématique est invalide ou déjà résolue.", mention_author=False, allowed_mentions=discord.AllowedMentions.none(), delete_after=10)
