@@ -291,11 +291,11 @@ class Auto(commands.Cog):
                         content = f">>> ```python\n{math_answer}```\n-# Réponse mathématique demandée par {user.mention}"
                         await message.reply(content, mention_author=False, allowed_mentions=discord.AllowedMentions.none())
                     else:
-                        await message.reply("**Le message ne semble pas contenir d'expression mathématique valide.**", mention_author=False, allowed_mentions=discord.AllowedMentions.none(), delete_after=10)
+                        await message.reply("L'expression mathématique est invalide ou déjà résolue.", mention_author=False, allowed_mentions=discord.AllowedMentions.none(), delete_after=10)
                     
             except Exception as e:
                 logger.error(f"Erreur lors de la réponse mathématique: {e}")
-                await message.reply("**Erreur lors de la réponse mathématique.**", mention_author=False, allowed_mentions=discord.AllowedMentions.none(), delete_after=10)
+                await message.reply("Erreur lors de la réponse mathématique.", mention_author=False, allowed_mentions=discord.AllowedMentions.none(), delete_after=10)
             
             finally:
                 # Supprime la proposition et la réaction à la fin
@@ -321,11 +321,11 @@ class Auto(commands.Cog):
                         content = f">>> {transcription}\n-# Transcription demandée par {user.mention}"
                         await message.reply(content, mention_author=False, allowed_mentions=discord.AllowedMentions.none())
                     else:
-                        await message.reply("**Aucune transcription disponible pour ce message audio.**", mention_author=False, allowed_mentions=discord.AllowedMentions.none(), delete_after=10)
+                        await message.reply("Aucune transcription disponible pour ce message audio.", mention_author=False, allowed_mentions=discord.AllowedMentions.none(), delete_after=10)
                     
             except Exception as e:
                 logger.error(f"Erreur lors de la transcription audio: {e}")
-                await message.reply("**Erreur lors de la transcription audio.**", mention_author=False, allowed_mentions=discord.AllowedMentions.none())
+                await message.reply("Erreur lors de la transcription audio.", mention_author=False, allowed_mentions=discord.AllowedMentions.none())
             
             finally:
                 # Supprime la proposition et la réaction à la fin
