@@ -235,7 +235,7 @@ class Auto(commands.Cog):
         
         if '=' in message.content and bool(self.get_guild_config(message.guild, 'suggest_math_answer')):
             # On vérifie si le message contient des chiffres et des opérateurs mathématiques
-            if any(char.isdigit() for char in message.content) and any(char in '+-*/%' for char in message.content):
+            if any(char.isdigit() for char in message.content):
                 # Si le message contient une expression mathématique, on propose une réponse
                 any_proposal = True
                 try:
