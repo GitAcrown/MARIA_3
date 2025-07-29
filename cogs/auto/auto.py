@@ -140,7 +140,7 @@ class MathAnswer:
             if not answer:
                 logger.warning(f"Aucune réponse trouvée pour l'expression '{expression[0]}'.")
                 return None
-            return f"{expression}={answer}"
+            return f"{expression[0]}={answer}"
         except Exception as e:
             logger.error(f"Erreur lors de la résolution de l'expression '{expression}': {e}")
             return "Erreur dans la résolution de l'expression mathématique."
