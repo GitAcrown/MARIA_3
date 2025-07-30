@@ -282,7 +282,7 @@ class UserMessage(ContextMessage):
 
     @classmethod
     def from_discord_message(cls, message: discord.Message,
-                             context_format: str = '{message.author.name} ({message.author.id})',
+                             context_format: str = '[{message.id}] {message.author.name} ({message.author.id})',
                              include_embeds: bool = True,
                              include_attachments: bool = True,
                              include_stickers: bool = True) -> 'UserMessage':

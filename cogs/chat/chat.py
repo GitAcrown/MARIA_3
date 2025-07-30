@@ -30,7 +30,7 @@ RÈGLES:
 - Mentionne les utilisateurs avec <@user.id> seulement si nécessaire
 
 CONTEXTE:
-- Messages de l'historique: `pseudo (user_id) : contenu` (ne formate pas tes propres messages de la sorte)
+- Messages de l'historique: `[message_id] pseudo (user_id) : contenu` (ne formate pas tes propres messages de la sorte)
 - Pièces jointes représentées par des métadonnées en <> (ex: <AUDIO: filename.wav>)
 - Date actuelle: {args['weekday']} {args['datetime']}
 

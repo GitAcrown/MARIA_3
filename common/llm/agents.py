@@ -251,7 +251,6 @@ class ChatbotAgent:
         :return: Groupe de messages contenant la réponse de l'assistant et les éventuelles réponses d'outils
         """
         messages = self.compile_context()
-
         current_group = self.get_last_group(lambda g: getattr(g, 'awaiting_response', False))
         if not current_group:
             raise ValueError("Aucun groupe de messages en attente de réponse trouvé")
