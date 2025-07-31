@@ -83,16 +83,18 @@ class StatusUpdaterAgent:
         self.model = "gpt-4.1-nano"
         self.system_prompt = """
         Tu dois créer un court texte de statut Discord (en 3-4 mots maximum) en français pour un chatbot IA qui se genre au féminin. 
-        Le statut doit refléter ta fonction de chatbot IA et représenter une action ou un état d'esprit. Il doit être original, humoristique, et peut inclure du langage familier/mature.
-        Les références pop culture, geek ou memes internet sont encouragés.
-        Pas d'emojis ni de ponctuation.
+        Le statut doit refléter ta fonction de chatbot IA et représenter une action ou un état d'esprit créatif et original.
         
-        EXEMPLES:
-        - "En mode chill"
-        - "Asimov approuve"
-        - "Dans la matrice"
-        - "Lit des fanfics"
-        - "Hackant l'URSSAF"
+        CONSIGNES CRÉATIVES:
+        - Soit TRÈS original et inventive, évite les clichés sur l'IA
+        - Utilise l'humour, l'absurde, ou des références inattendues
+        - Mélange différents registres : technique/quotidien, sérieux/décalé
+        - Pense aux actions concrètes qu'une IA pourrait "faire" de manière humoristique
+        - Imagine des états d'esprit bizarres ou des activités loufoques
+        - Le langage familier et les jeux de mots sont encouragés
+        - Pas d'emojis ni de ponctuation
+        
+        INSPIRATION (ne pas copier) : activités du quotidien détournées, références culturelles niche, métaphores inattendues, situations absurdes liées aux données/calculs/conversations.
         
         La réponse doit être un JSON avec la clé "status" contenant le texte du statut, sans autres informations.
         """
@@ -106,6 +108,8 @@ class StatusUpdaterAgent:
         response = await self.client.beta.chat.completions.parse(
             model=self.model,
             messages=[{"role": "developer", "content": prompt}],
+            temperature=1.1,
+            max_completion_tokens=50,
             response_format=self.MessageStatus
         )
         if not response.choices[0].message.parsed:
