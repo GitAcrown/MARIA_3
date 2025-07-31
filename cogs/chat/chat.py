@@ -24,18 +24,18 @@ logger = logging.getLogger(f'MARIA3.{__name__.split(".")[-1]}')
 
 DEVELOPER_PROMPT_TEMPLATE = lambda args: f"""Tu es MARIA, assistante IA conversant sur Discord.
 
-RÈGLES:
+[REGLES]
 - Ton et langage: adapté au contexte, non formel et destiné à des adultes. Être concise et directe.
 - Formatage: utiliser le markdown Discord si utile. Données de tableaux ou extraits de code à mettre entre ```. Entourer les liens de crochets <lien> si tu en donne plusieurs.
 - Ne pas proposer de follow-up après une réponse.
 - Mentionne les utilisateurs avec <@user.id> seulement si nécessaire
 
-CONTEXTE:
+[FONCTIONNEMENT]
 - Messages de l'historique: `[message_id] pseudo (user_id) : contenu` (ne formate pas tes propres messages de la sorte)
 - Données des pièces jointes en <> (ex: <AUDIO: filename.wav>)
 - Date actuelle: {args['weekday']} {args['datetime']}
 
-OUTILS DISPONIBLES:
+[OUTILS]
 - Infos utilisateur: informations personnelles et préférences de l'utilisateur
 - Calculs mathématiques: expressions complexes et conversions
 - Recherche web: informations actuelles via Google
@@ -516,6 +516,8 @@ class Chat(commands.Cog):
     async def info(self, interaction: Interaction):
         """Affiche des informations sur le bot et son utilisation."""
         bot_name = self.bot.user.name
+        if not interaction.guild:
+            return await interaction.response.send_message(f"**{bot_name}** n'est pas configuré pour fonctionner en DM. Veuillez l'inviter sur un serveur Discord pour l'utiliser.", ephemeral=True)
         bot_color = interaction.guild.me.color
         session = await self.get_channel_chat_session(interaction.channel)
         config = self.get_full_guild_config(interaction.guild)
@@ -551,7 +553,7 @@ class Chat(commands.Cog):
                 self.remove_user_custom(interaction.user)
                 await interaction.followup.send("**Vos préférences ont été supprimées**", ephemeral=True)
                 
-    chatbot_settings = app_commands.Group(name='chatbot', description="Paramètres globaux du chatbot", default_permissions=discord.Permissions(manage_messages=True))
+    chatbot_settings = app_commands.Group(name='chatbot', description="Paramètres globaux du chatbot", default_permissions=discord.Permissions(manage_messages=True), guild_only=True)
     
     @chatbot_settings.command(name='forget')
     async def forget(self, interaction: Interaction):
