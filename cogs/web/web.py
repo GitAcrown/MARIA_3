@@ -103,7 +103,7 @@ class Web(commands.Cog):
             ),
             Tool(
                 name='extract_media_urls',
-                description='Extrait les URLs des images, vidéos et contenus audio d\'une page web. Les URLs retournées peuvent être directement utilisées sur Discord sans syntaxe Markdown (pas de ! devant).',
+                description='Extrait les URLs des images, vidéos et contenus audio d\'une page web.',
                 properties={
                     'url': {'type': 'string', 'description': 'URL de la page web où extraire les médias'},
                     'media_type': {'type': 'string', 'enum': ['all', 'images', 'videos', 'audio'], 'description': 'Type de média à extraire (défaut: all)'},
