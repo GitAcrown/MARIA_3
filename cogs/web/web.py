@@ -3,7 +3,8 @@ import re
 import time
 import html
 from typing import List, Dict
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urljoin
+import os
 
 import requests
 from bs4 import BeautifulSoup
@@ -25,6 +26,21 @@ CACHE_EXPIRY_HOURS = 24
 DEFAULT_HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 }
+
+# Formats multimédias supportés
+SUPPORTED_IMAGE_FORMATS = {
+    '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'
+}
+
+SUPPORTED_VIDEO_FORMATS = {
+    '.mp4', '.webm', '.mov', '.avi', '.mkv', '.m4v'
+}
+
+SUPPORTED_AUDIO_FORMATS = {
+    '.mp3', '.wav', '.ogg', '.m4a', '.flac', '.aac'
+}
+
+ALL_MEDIA_FORMATS = SUPPORTED_IMAGE_FORMATS | SUPPORTED_VIDEO_FORMATS | SUPPORTED_AUDIO_FORMATS
 
 # Patterns pour nettoyer le contenu
 NOISE_PATTERNS = [
@@ -84,6 +100,16 @@ class Web(commands.Cog):
                     'chunk_index': {'type': 'integer', 'description': 'Index de la partie à lire (défaut: 0)'}
                 },
                 function=self._tool_read_web_page
+            ),
+            Tool(
+                name='extract_media_urls',
+                description='Extrait les URLs des images, vidéos et contenus audio d\'une page web.',
+                properties={
+                    'url': {'type': 'string', 'description': 'URL de la page web à analyser'},
+                    'media_type': {'type': 'string', 'description': "Type de média à extraire: 'images', 'videos', 'audio' ou 'all' (défaut: 'all')"},
+                    'limit': {'type': 'integer', 'description': 'Nombre maximum d\'URLs à retourner (défaut: 20)'}
+                },
+                function=self._tool_extract_media_urls
             )
         ]
     
@@ -163,6 +189,175 @@ class Web(commands.Cog):
             return True
         
         return False
+    
+    def extract_media_urls(self, url: str, media_type: str = 'all', limit: int = 20) -> List[Dict]:
+        """Extrait les URLs des contenus multimédias d'une page web."""
+        try:
+            # Récupération de la page
+            response = requests.get(url, headers=DEFAULT_HEADERS, timeout=DEFAULT_TIMEOUT)
+            if response.status_code != 200:
+                return []
+            
+            soup = BeautifulSoup(response.text, "html.parser")
+            media_urls = []
+            
+            # Déterminer quels types de média chercher
+            search_images = media_type in ['all', 'images']
+            search_videos = media_type in ['all', 'videos'] 
+            search_audio = media_type in ['all', 'audio']
+            
+            # Extraire les images
+            if search_images:
+                # Balises img classiques
+                for img in soup.find_all('img'):
+                    src = img.get('src') or img.get('data-src') or img.get('data-lazy-src')
+                    if src:
+                        full_url = urljoin(url, src)
+                        if self._is_valid_media_url(full_url, 'image'):
+                            alt_text = img.get('alt', '').strip()
+                            title = img.get('title', '').strip()
+                            media_urls.append({
+                                'type': 'image',
+                                'url': full_url,
+                                'alt': alt_text or title or 'Image',
+                                'source': 'img_tag'
+                            })
+                
+                # Liens vers des images
+                for link in soup.find_all('a', href=True):
+                    href = link['href']
+                    full_url = urljoin(url, href)
+                    if self._is_valid_media_url(full_url, 'image'):
+                        link_text = link.get_text(strip=True) or 'Image'
+                        media_urls.append({
+                            'type': 'image',
+                            'url': full_url,
+                            'alt': link_text,
+                            'source': 'link'
+                        })
+            
+            # Extraire les vidéos
+            if search_videos:
+                # Balises video
+                for video in soup.find_all('video'):
+                    src = video.get('src')
+                    if src:
+                        full_url = urljoin(url, src)
+                        if self._is_valid_media_url(full_url, 'video'):
+                            title = video.get('title', '').strip() or 'Vidéo'
+                            media_urls.append({
+                                'type': 'video',
+                                'url': full_url,
+                                'alt': title,
+                                'source': 'video_tag'
+                            })
+                    
+                    # Sources dans les balises video
+                    for source in video.find_all('source'):
+                        src = source.get('src')
+                        if src:
+                            full_url = urljoin(url, src)
+                            if self._is_valid_media_url(full_url, 'video'):
+                                media_urls.append({
+                                    'type': 'video',
+                                    'url': full_url,
+                                    'alt': 'Vidéo',
+                                    'source': 'video_source'
+                                })
+                
+                # Liens vers des vidéos
+                for link in soup.find_all('a', href=True):
+                    href = link['href']
+                    full_url = urljoin(url, href)
+                    if self._is_valid_media_url(full_url, 'video'):
+                        link_text = link.get_text(strip=True) or 'Vidéo'
+                        media_urls.append({
+                            'type': 'video',
+                            'url': full_url,
+                            'alt': link_text,
+                            'source': 'link'
+                        })
+            
+            # Extraire les audios
+            if search_audio:
+                # Balises audio
+                for audio in soup.find_all('audio'):
+                    src = audio.get('src')
+                    if src:
+                        full_url = urljoin(url, src)
+                        if self._is_valid_media_url(full_url, 'audio'):
+                            title = audio.get('title', '').strip() or 'Audio'
+                            media_urls.append({
+                                'type': 'audio',
+                                'url': full_url,
+                                'alt': title,
+                                'source': 'audio_tag'
+                            })
+                    
+                    # Sources dans les balises audio
+                    for source in audio.find_all('source'):
+                        src = source.get('src')
+                        if src:
+                            full_url = urljoin(url, src)
+                            if self._is_valid_media_url(full_url, 'audio'):
+                                media_urls.append({
+                                    'type': 'audio',
+                                    'url': full_url,
+                                    'alt': 'Audio',
+                                    'source': 'audio_source'
+                                })
+                
+                # Liens vers des fichiers audio
+                for link in soup.find_all('a', href=True):
+                    href = link['href']
+                    full_url = urljoin(url, href)
+                    if self._is_valid_media_url(full_url, 'audio'):
+                        link_text = link.get_text(strip=True) or 'Audio'
+                        media_urls.append({
+                            'type': 'audio',
+                            'url': full_url,
+                            'alt': link_text,
+                            'source': 'link'
+                        })
+            
+            # Supprimer les doublons en gardant le premier
+            seen_urls = set()
+            unique_media = []
+            for media in media_urls:
+                if media['url'] not in seen_urls:
+                    seen_urls.add(media['url'])
+                    unique_media.append(media)
+            
+            # Limiter le nombre de résultats
+            return unique_media[:limit]
+            
+        except Exception as e:
+            logger.error(f"Erreur extraction média {url}: {e}")
+            return []
+    
+    def _is_valid_media_url(self, url: str, media_category: str) -> bool:
+        """Vérifie si une URL pointe vers un fichier multimédia valide."""
+        try:
+            parsed = urlparse(url)
+            if not parsed.scheme or not parsed.netloc:
+                return False
+            
+            # Obtenir l'extension du fichier
+            path = parsed.path.lower()
+            extension = os.path.splitext(path)[1]
+            
+            # Vérifier selon le type de média
+            if media_category == 'image':
+                return extension in SUPPORTED_IMAGE_FORMATS
+            elif media_category == 'video':
+                return extension in SUPPORTED_VIDEO_FORMATS
+            elif media_category == 'audio':
+                return extension in SUPPORTED_AUDIO_FORMATS
+            else:
+                return extension in ALL_MEDIA_FORMATS
+                
+        except Exception:
+            return False
     
     def search_web_pages(self, query: str, lang: str = 'fr', num_results: int = DEFAULT_NUM_RESULTS) -> List[Dict]:
         """Effectue une recherche web."""
@@ -311,6 +506,60 @@ class Web(commands.Cog):
             'content': chunks[chunk_index],
             'has_more': chunk_index < len(chunks) - 1
         }, tool_call.data['id'], header=f'Lecture de {header_url}')
+    
+    def _tool_extract_media_urls(self, tool_call: ToolCall, context: MessageGroup) -> ToolResponseMessage:
+        """Outil pour extraire les URLs de contenus multimédias d'une page web."""
+        url = tool_call.arguments.get('url')
+        if not url:
+            return ToolResponseMessage({'error': 'URL manquante'}, tool_call.data['id'])
+        
+        # Validation basique de l'URL
+        parsed = urlparse(url)
+        if parsed.scheme not in ['http', 'https'] or not parsed.netloc:
+            return ToolResponseMessage({'error': 'URL invalide'}, tool_call.data['id'])
+        
+        media_type = tool_call.arguments.get('media_type', 'all')
+        if media_type not in ['all', 'images', 'videos', 'audio']:
+            media_type = 'all'
+        
+        limit = tool_call.arguments.get('limit', 20)
+        if not isinstance(limit, int) or limit < 1:
+            limit = 20
+        elif limit > 50:  # Limite max pour éviter la surcharge
+            limit = 50
+        
+        media_urls = self.extract_media_urls(url, media_type, limit)
+        
+        if not media_urls:
+            return ToolResponseMessage({
+                'error': f'Aucun contenu multimédia trouvé (type: {media_type})'
+            }, tool_call.data['id'])
+        
+        # Organiser les résultats par type
+        results_by_type = {'images': [], 'videos': [], 'audio': []}
+        for media in media_urls:
+            results_by_type[f"{media['type']}s"].append({
+                'url': media['url'],
+                'description': media['alt'],
+                'source': media['source']
+            })
+        
+        # Statistiques
+        stats = {
+            'total': len(media_urls),
+            'images': len(results_by_type['images']),
+            'videos': len(results_by_type['videos']),
+            'audio': len(results_by_type['audio'])
+        }
+        
+        header_url = f'[{url.split("//")[-1].split("/")[0]}](<{url}>)'
+        return ToolResponseMessage({
+            'url': url,
+            'media_type': media_type,
+            'limit': limit,
+            'statistics': stats,
+            'media': results_by_type
+        }, tool_call.data['id'], header=f'Contenus multimédias de {header_url}')
 
 async def setup(bot):
     await bot.add_cog(Web(bot))
