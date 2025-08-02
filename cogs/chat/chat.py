@@ -614,10 +614,20 @@ class Chat(commands.Cog):
         try:
             new_status = await self._status_updater_agent.get_status()
             await self.bot.change_presence(activity=discord.Activity(type=discord.ActivityType.custom, name='custom', state=new_status))
-            await ctx.send(f"**Statut mis à jour** ⸱ `{new_status}`")
+            await ctx.send(f"**Statut mis à jour** ⸱ `{new_status}`\n-# /!\ Sera remplacé par le statut généré automatiquement à la prochaine mise à jour programmée.", ephemeral=True)
         except Exception as e:
             logger.error(f"Erreur lors de la mise à jour du statut : {e}")
             await ctx.send(f"**Erreur** × {e}", ephemeral=True)
+            
+    @commands.command(name='manualstatusupdate', aliases=['msu'])
+    @commands.is_owner()
+    async def manual_set_status(self, ctx: commands.Context, *, status: str):
+        """Définit manuellement le statut du bot."""
+        if len(status) > 64:
+            return await ctx.send("**Le statut ne peut pas dépasser 64 caractères.**", ephemeral=True)
+        await self.bot.change_presence(activity=discord.Activity(type=discord.ActivityType.custom, name='custom', state=status))
+        await ctx.send(f"**Statut défini** ⸱ `{status}`\-# /!\ Sera remplacé par le statut généré automatiquement à la prochaine mise à jour programmée.", ephemeral=True)
+        
     
 async def setup(bot):
     await bot.add_cog(Chat(bot))
