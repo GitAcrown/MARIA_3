@@ -29,7 +29,7 @@ DEFAULT_HEADERS = {
 
 # Formats multimédias supportés
 SUPPORTED_IMAGE_FORMATS = {
-    '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'
+    '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'
 }
 
 SUPPORTED_VIDEO_FORMATS = {
