@@ -605,5 +605,19 @@ class Chat(commands.Cog):
         self.set_guild_config(interaction.guild, 'opportunist_threshold', threshold)
         await interaction.response.send_message(f"**Seuil d'opportunité modifié** ⸱ `{threshold}%`\n-# Le chatbot répondra aux mentions indirectes ayant un score d'opportunité supérieur à cette valeur (si le mode est activé).", ephemeral=True)
     
+    # COMMANDE SPECIALE POUR LE STATUS ----------------------
+    
+    @commands.command(name='forcestatusupdate', aliases=['fsu'])
+    @commands.is_owner()
+    async def force_status_update(self, ctx: commands.Context):
+        """Force la mise à jour du statut du bot."""
+        try:
+            new_status = await self._status_updater_agent.get_status()
+            await self.bot.change_presence(activity=discord.Activity(type=discord.ActivityType.custom, name='custom', state=new_status))
+            await ctx.send(f"**Statut mis à jour** ⸱ `{new_status}`")
+        except Exception as e:
+            logger.error(f"Erreur lors de la mise à jour du statut : {e}")
+            await ctx.send(f"**Erreur** × {e}", ephemeral=True)
+    
 async def setup(bot):
     await bot.add_cog(Chat(bot))
