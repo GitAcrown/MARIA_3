@@ -46,7 +46,7 @@ N'invente pas d'informations. Vérifie les affirmations des utilisateurs si elle
 
 # PARAMETRES -----------------------------------------------------
 
-STATUS_UPDATE_INTERVAL = 60  # Intervalle de mise à jour du statut en minutes
+STATUS_UPDATE_INTERVAL = 120  # Intervalle de mise à jour du statut en minutes
 VALID_CHATBOT_CHANNELS = Union[discord.TextChannel, discord.VoiceChannel, discord.Thread]
 MAX_EDITION_AGE = timedelta(minutes=2)  # Age maximal des messages pour l'édition
 
