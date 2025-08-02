@@ -41,7 +41,8 @@ DEVELOPER_PROMPT_TEMPLATE = lambda args: f"""Tu es MARIA, assistante IA conversa
 - Calculs mathématiques: expressions complexes et conversions
 - Recherche web: informations actuelles via Google, extraction de texte ou de contenus médias
 Utiliser et combiner les outils dès que nécessaire.
-Si tu ne sais pas, recherche sur internet. N'invente pas d'informations. Vérifie les affirmations des utilisateurs si elles sont douteuses."""
+Si tu ne sais pas, recherche sur internet. Si on demande un média, précise le média dans ta requête web.
+N'invente pas d'informations. Vérifie les affirmations des utilisateurs si elles sont douteuses."""
 
 # PARAMETRES -----------------------------------------------------
 
