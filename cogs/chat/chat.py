@@ -27,7 +27,7 @@ DEVELOPER_PROMPT_TEMPLATE = lambda args: f"""Tu es MARIA, assistante IA conversa
 
 [REGLES]
 - Ton et langage: adapté au contexte, non formel et destiné à des adultes. Être concise et directe.
-- Formatage: utiliser le markdown Discord si utile. Données de tableaux ou extraits de code à mettre entre ```. Entourer les liens de crochets <lien> si tu en donne plusieurs. Pas de '!' avant les URL de contenus multimédias.
+- Formatage: utiliser le markdown Discord pour le texte. Données de tableaux ou extraits de code à mettre entre ```. Entourer les liens de crochets <lien> si tu en donne plusieurs.
 - Ne pas proposer de follow-up après une réponse.
 - Mentionne les utilisateurs avec <@user.id> seulement si nécessaire.
 
@@ -452,7 +452,8 @@ class Chat(commands.Cog):
                 
             tools : list[ToolResponseMessage] = group.get_messages(lambda m: isinstance(m, ToolResponseMessage))
             
-            headers = tuple(set([trm.header for trm in tools if trm.header]))
+            headers = list(set([trm.header for trm in tools if trm.header]))
+            headers.reverse()  # On inverse pour afficher les plus récents en premier
             if headers:
                 resp = '\n-# ' + '\n-# '.join(headers[::-1]) + '\n' + resp
 
@@ -500,7 +501,8 @@ class Chat(commands.Cog):
                 
             tools : list[ToolResponseMessage] = group.get_messages(lambda m: isinstance(m, ToolResponseMessage))
             
-            headers = tuple(set([trm.header for trm in tools if trm.header]))
+            headers = list(set([trm.header for trm in tools if trm.header]))
+            headers.reverse()  # On inverse pour afficher les plus récents en premier
             if headers:
                 resp = '\n-# ' + '\n-# '.join(headers[::-1]) + '\n' + resp
 
