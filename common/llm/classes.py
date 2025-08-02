@@ -440,6 +440,11 @@ class Tool:
                 }
             }
         }
+        
+    @property
+    def is_prog_compatible(self) -> bool:
+        """Indique si l'outil est compatible avec la programmation."""
+        return self.extras.get('prog_compatible', True)
 
 # GROUPS ----------------------------------------------------------------------
 class MessageGroup:

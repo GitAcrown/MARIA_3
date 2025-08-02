@@ -13,6 +13,7 @@ from discord import Interaction, app_commands
 from discord.ext import commands, tasks
 from moviepy import VideoFileClip
 from openai import AsyncOpenAI
+from pydantic import BaseModel
 
 from common import dataio
 from common.llm.agents import *

@@ -1,6 +1,7 @@
 import logging
 import re
 import time
+import html
 from typing import List, Dict
 from urllib.parse import urlparse
 
@@ -34,6 +35,20 @@ NOISE_PATTERNS = [
     r'cookie policy',
     r'privacy policy',
     r'terms of service',
+    r'\${[^}]+}',  # Variables JavaScript non traitées
+    r'function\s*\([^)]*\)\s*\{[^}]*\}',  # Fonctions JavaScript
+    r'var\s+\w+\s*=.*?;',  # Variables JavaScript
+]
+
+# Patterns pour nettoyer les caractères spéciaux
+UNICODE_CLEANUP_PATTERNS = [
+    (r'\\u([0-9a-fA-F]{4})', lambda m: chr(int(m.group(1), 16))),  # Unicode échappé
+    (r'\\n', '\n'),  # Newlines échappés
+    (r'\\t', '\t'),  # Tabs échappés
+    (r'\\r', '\r'),  # Carriage returns échappés
+    (r'\\"', '"'),   # Guillemets échappés
+    (r"\\'", "'"),   # Apostrophes échappées
+    (r'\\\\', '\\'), # Backslashes échappés
 ]
 
 # Sélecteurs pour détecter le contenu principal
@@ -74,6 +89,81 @@ class Web(commands.Cog):
     
     # MÉTHODES UTILITAIRES --------------------------------------------
     
+    def clean_text_content(self, text: str) -> str:
+        """Nettoie le contenu textuel des artefacts web et caractères échappés."""
+        if not text:
+            return ""
+        
+        # Décoder les entités HTML d'abord
+        text = html.unescape(text)
+        
+        # Nettoyer les caractères Unicode échappés et autres échappements
+        for pattern, replacement in UNICODE_CLEANUP_PATTERNS:
+            if callable(replacement):
+                text = re.sub(pattern, replacement, text)
+            else:
+                text = text.replace(pattern, replacement)
+        
+        # Supprimer les patterns de bruit
+        for pattern in NOISE_PATTERNS:
+            text = re.sub(pattern, '', text, flags=re.IGNORECASE | re.DOTALL)
+        
+        # Nettoyer les espaces et lignes multiples
+        text = re.sub(r'\n{3,}', '\n\n', text)
+        text = re.sub(r' {2,}', ' ', text)
+        text = re.sub(r'\t+', ' ', text)
+        
+        # Supprimer les lignes vides répétées
+        lines = text.split('\n')
+        cleaned_lines = []
+        prev_empty = False
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                if not prev_empty:
+                    cleaned_lines.append('')
+                prev_empty = True
+            else:
+                cleaned_lines.append(line)
+                prev_empty = False
+        
+        return '\n'.join(cleaned_lines).strip()
+    
+    def _is_low_quality_chunk(self, chunk: str) -> bool:
+        """Détecte si un chunk est de basse qualité (répétitif, incohérent, etc.)."""
+        chunk = chunk.strip()
+        
+        # Chunk trop court
+        if len(chunk) < 50:
+            return True
+        
+        # Trop de caractères spéciaux ou de ponctuation
+        special_char_ratio = len(re.findall(r'[^\w\s\-.,;:!?()"\']', chunk)) / len(chunk)
+        if special_char_ratio > 0.3:
+            return True
+        
+        # Contenu répétitif (même phrase/mot répété)
+        words = chunk.lower().split()
+        if len(words) > 10:
+            word_count = {}
+            for word in words:
+                if len(word) > 3:  # Ignorer les mots très courts
+                    word_count[word] = word_count.get(word, 0) + 1
+            
+            # Si un mot (non commun) apparaît trop souvent
+            for word, count in word_count.items():
+                if count > len(words) * 0.3 and word not in ['the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had', 'her', 'was', 'one', 'our', 'out', 'day', 'get', 'has', 'him', 'his', 'how', 'its', 'may', 'new', 'now', 'old', 'see', 'two', 'way', 'who', 'boy', 'did', 'les', 'des', 'une', 'sur', 'avec', 'par', 'pour', 'dans', 'est', 'que', 'qui', 'son', 'ses', 'aux', 'cette', 'tous', 'tout']:
+                    return True
+        
+        # Détection de contenu JavaScript restant
+        js_indicators = ['function', 'var ', 'const ', 'let ', 'return', '${', '};', 'console.log']
+        js_count = sum(1 for indicator in js_indicators if indicator in chunk.lower())
+        if js_count > 2:
+            return True
+        
+        return False
+    
     def search_web_pages(self, query: str, lang: str = 'fr', num_results: int = DEFAULT_NUM_RESULTS) -> List[Dict]:
         """Effectue une recherche web."""
         try:
@@ -103,7 +193,15 @@ class Web(commands.Cog):
             # Suppression des éléments non pertinents
             for tag in soup(["script", "style", "header", "footer", "nav", "aside", "iframe", 
                             "noscript", "form", "button", "svg", ".ad", ".ads", ".cookie", 
-                            ".popup", ".banner", ".sidebar", ".menu", ".comments"]):
+                            ".popup", ".banner", ".sidebar", ".menu", ".comments", "select",
+                            "input", "textarea", "label", ".navigation", ".breadcrumb", 
+                            ".social", ".share", ".related", ".recommended", ".widget"]):
+                tag.decompose()
+            
+            # Supprimer les éléments avec des attributs suspects
+            for tag in soup.find_all(attrs={"class": re.compile(r"(ad|banner|popup|cookie|social|share|widget)", re.I)}):
+                tag.decompose()
+            for tag in soup.find_all(attrs={"id": re.compile(r"(ad|banner|popup|cookie|social|share|widget)", re.I)}):
                 tag.decompose()
             
             # Détection du contenu principal
@@ -120,17 +218,12 @@ class Web(commands.Cog):
             text = ""
             for elem in text_container.find_all(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li']):
                 content = elem.get_text(strip=True)
-                if len(content) > 20 or (elem.name.startswith('h') and content):
+                if len(content) > 10:  # Réduire le seuil pour capturer plus de contenu
                     prefix = f"## " if elem.name.startswith('h') else ""
                     text += f"\n{prefix}{content}\n"
             
-            # Nettoyage du texte
-            for pattern in NOISE_PATTERNS:
-                text = re.sub(pattern, '', text, flags=re.IGNORECASE)
-            
-            text = re.sub(r'\n{3,}', '\n\n', text)
-            text = re.sub(r' {2,}', ' ', text)
-            text = text.strip()
+            # Nettoyage approfondi du texte
+            text = self.clean_text_content(text)
             
             # Division en chunks
             chunks = []
@@ -138,6 +231,10 @@ class Web(commands.Cog):
             current_chunk = ""
             
             for paragraph in paragraphs:
+                # Ignorer les paragraphes trop courts ou suspects
+                if len(paragraph.strip()) < 30:
+                    continue
+                    
                 if len(current_chunk) + len(paragraph) + 2 > chunk_size:
                     if current_chunk:
                         chunks.append(current_chunk.strip())
@@ -148,8 +245,8 @@ class Web(commands.Cog):
             if current_chunk.strip():
                 chunks.append(current_chunk.strip())
             
-            # Filtrer les chunks trop courts et mettre en cache
-            chunks = [c for c in chunks if len(c.strip()) > 100]
+            # Filtrer les chunks de meilleure qualité
+            chunks = [c for c in chunks if len(c.strip()) > 100 and not self._is_low_quality_chunk(c)]
             self.page_chunks_cache[cache_key] = {
                 'chunks': chunks, 
                 'timestamp': time.time()
