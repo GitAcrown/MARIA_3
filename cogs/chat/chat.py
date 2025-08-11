@@ -3,6 +3,7 @@ import logging
 import os
 import random
 import re
+import zoneinfo
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Literal, Union
@@ -22,6 +23,9 @@ from common.llm.classes import *
 logger = logging.getLogger(f'MARIA3.{__name__.split(".")[-1]}')
 
 # CONSTANTES ----------------------------------------------------
+
+# Fuseau horaire de Paris
+PARIS_TZ = zoneinfo.ZoneInfo("Europe/Paris")
 
 DEVELOPER_PROMPT_TEMPLATE = lambda args: f"""Tu es MARIA, assistante IA conversant sur Discord.
 [REGLES]
@@ -319,8 +323,8 @@ class Chat(commands.Cog):
         if channel.id not in self._SESSIONS:
             # Crée un agent de chat
             dev_prompt = DEVELOPER_PROMPT_TEMPLATE({
-                'weekday': datetime.now(timezone.utc).strftime('%A'),
-                'datetime': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+                'weekday': datetime.now(PARIS_TZ).strftime('%A'),
+                'datetime': datetime.now(PARIS_TZ).strftime('%Y-%m-%d %H:%M:%S')
             })
             self.populate_tools()
             

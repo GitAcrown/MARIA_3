@@ -8,6 +8,7 @@ import base64
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable, Sequence
+import zoneinfo
 from moviepy import VideoFileClip
 
 import discord
@@ -21,6 +22,9 @@ from .classes import *
 logger = logging.getLogger(f'MARIA3.agents')
 
 # CONSTANTES ------------------------------------------------------
+
+# Fuseau horaire de Paris
+PARIS_TZ = zoneinfo.ZoneInfo("Europe/Paris")
 
 # Main Chatbot
 MAIN_TEMPERATURE = 0.9
@@ -109,7 +113,7 @@ class ChatbotAgent:
     @property
     def developer_message(self) -> DeveloperMessage:
         """Retourne le message du développeur de l'agent."""
-        return DeveloperMessage(self.developer_prompt, created_at=datetime.now(timezone.utc))
+        return DeveloperMessage(self.developer_prompt, created_at=datetime.now(PARIS_TZ))
     
     def get_groups(self, filter: Callable[[MessageGroup], bool] = lambda _: True) -> list[MessageGroup]:
         """Retourne les groupes de messages de l'historique."""
@@ -166,7 +170,7 @@ class ChatbotAgent:
     def cleanup_groups(self) -> None:
         """Efface les groupes de messages trop vieux ou dépassant la limite de tokens."""
         # On efface tous les groupes trop vieux
-        now = datetime.now(timezone.utc)
+        now = datetime.now(PARIS_TZ)
         self._history_groups = [group for group in self._history_groups if now - group.created_at < self.context_age]
         
         # On efface tous les groupes après le dernier groupe ne respectant plus la limite de tokens
