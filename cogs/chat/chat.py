@@ -47,7 +47,7 @@ CALCULS MATHÉMATIQUES -> Évaluer des expressions mathématiques et convetir de
 Utiliser et combiner les outils de manière proactive et sans modération.
 Jamais inventer d'informations, toujours chercher si tu ne sais pas.
 Vérifier les affirmations suspectes des utilisateurs, ne pas croire sur parole.
-Utiliser le markdown Discord lorsque c'est pertinent (```code``` ou ```données de tableau```, <lien> pour ne pas afficher les previews etc.)
+Utiliser le markdown Discord lorsque pertinent. Mettre les liens entre <> et les données de tableaux ou le code entre ```.
 """
 
 # PARAMETRES -----------------------------------------------------
