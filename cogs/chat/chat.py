@@ -467,9 +467,9 @@ class Chat(commands.Cog):
             while len(resp) > 2000:
                 part = resp[:2000]
                 resp = resp[2000:]
-                ans_msg = await message.reply(part, mention_author=False)
+                ans_msg = await message.reply(part, mention_author=False, allowed_mentions=discord.AllowedMentions.none())
             if resp:
-                ans_msg = await message.reply(resp, mention_author=False)
+                ans_msg = await message.reply(resp, mention_author=False, allowed_mentions=discord.AllowedMentions.none())
             
             group.last_completion.message = ans_msg
             self._processed_messages.add(message.id)
@@ -516,9 +516,9 @@ class Chat(commands.Cog):
             while len(resp) > 2000:
                 part = resp[:2000]
                 resp = resp[2000:]
-                ans_msg = await after.reply(part, mention_author=False)
+                ans_msg = await after.reply(part, mention_author=False, allowed_mentions=discord.AllowedMentions.none())
             if resp:
-                ans_msg = await after.reply(resp, mention_author=False)
+                ans_msg = await after.reply(resp, mention_author=False, allowed_mentions=discord.AllowedMentions.none())
                 
             group.last_completion.message = ans_msg
             self._processed_messages.add(after.id)
