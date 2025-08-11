@@ -49,10 +49,10 @@ TEMP_DIR = Path('./temp')
 if not TEMP_DIR.exists():
     TEMP_DIR.mkdir(parents=True, exist_ok=True)
 
-VIDEO_ANALYSIS_DEV_PROMPT = "A partir des éléments fournis (images et transcription audio) qui ont été extraits d'une vidéo, réalise une description EXTREMEMENT DÉTAILLÉE (sujets, actions, apparences etc.). Ne répond qu'avec cette description sans aucun autre texte. Les images sont fournies dans l'ordre chronologique et sont des frames extraites à intervalles égaux de la vidéo."
-VIDEO_ANALYSIS_TEMPERATURE = 0.1
+VIDEO_ANALYSIS_DEV_PROMPT = "A partir des éléments fournis (images et transcription audio) qui ont été extraits d'une vidéo, réalise une description EXTREMEMENT DÉTAILLÉE (sujets, actions, scène, apparences etc.). Ne répond qu'avec cette description sans aucun autre texte. Les images sont fournies dans l'ordre chronologique et sont des frames extraites à intervalles égaux de la vidéo."
+VIDEO_ANALYSIS_TEMPERATURE = 0.15
 VIDEO_ANALYSIS_COMPLETION_MODEL = 'gpt-4.1-nano'
-VIDEO_ANALYSIS_MAX_COMPLETION_TOKENS = 500
+VIDEO_ANALYSIS_MAX_COMPLETION_TOKENS = 1000
 VIDEO_ANALYSIS_MAX_ANALYSIS_FILE_SIZE = 20 * 1024 * 1024 # 20 Mo
 VIDEO_ANALYSIS_NB_IMAGES_EXTRACTED = 10
 
