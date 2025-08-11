@@ -257,7 +257,10 @@ class ChatbotAgent:
         messages = self.compile_context()
         current_group = self.get_last_group(lambda g: getattr(g, 'awaiting_response', False))
         if not current_group:
-            raise ValueError("Aucun groupe de messages en attente de réponse trouvé")
+            # On récupère le dernier groupe de message contenant un message utilisateur
+            current_group = self.get_last_group(lambda g: any(isinstance(m, UserMessage) for m in g.messages))
+            if not current_group:
+                raise ValueError("Aucun groupe de messages valide trouvé pour la complétion.")
         
         await self.handle_messages_attachments(messages)
         
