@@ -473,7 +473,7 @@ class Web(commands.Cog):
             'query': query,
             'results': results,
             'total_results': len(results)
-        }, tool_call.data['id'], header=f'Recherche web pour *\"{query}\"*')
+        }, tool_call.data['id'], header=f'Recherche de *\"{query}\"*')
     
     def _tool_read_web_page(self, tool_call: ToolCall, context: MessageGroup) -> ToolResponseMessage:
         """Outil pour lire le contenu d'une page web."""
