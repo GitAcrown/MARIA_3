@@ -367,9 +367,21 @@ class ToolResponseMessage(ContextMessage):
     
     # Helpers --------------------------------
     @property
+    def icon(self) -> str:
+        """Renvoie l'icône associée à l'outil, s'il est défini dans les kwargs."""
+        return self.kwargs.get('icon', '')
+    
+    @property
     def header(self) -> str:
         """Renvoie l'en-tête du message, s'il est défini dans les kwargs."""
         return self.kwargs.get('header', '')
+    
+    @property
+    def tool_repr(self) -> str:
+        """Renvoie un string représentant l'utilisation de l'outil."""
+        if self.icon:
+            return f"{self.icon} {self.header}"
+        return self.header
     
 # TOOLS ----------------------------------------------------------------------
 

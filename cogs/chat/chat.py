@@ -393,6 +393,7 @@ class Chat(commands.Cog):
         return ToolResponseMessage(
             {'user': f'{user.name} (ID:{user.id})', 'infos': infos},
             tool_call.data['id'],
+            icon='<:userinfo:1404887119876329583>',
             header=f"Consultation des infos de ***{user.name}***"
         )
         
@@ -405,7 +406,9 @@ class Chat(commands.Cog):
             result = float(ne.evaluate(expression))
             if result.is_integer():
                 result = int(result)
-            return ToolResponseMessage({'result': result}, tool_call.data['id'], header=f"Calcul de `{expression}`")
+            return ToolResponseMessage({'result': result}, tool_call.data['id'], 
+                                       icon='<:expcalc:1404887073659555972>',
+                                       header=f"Calcul de `{expression}`")
         except Exception as e:
             return ToolResponseMessage({'error': str(e)}, tool_call.data['id'])
         
@@ -458,11 +461,14 @@ class Chat(commands.Cog):
                 
             tools : list[ToolResponseMessage] = group.get_messages(lambda m: isinstance(m, ToolResponseMessage))
             
-            headers = list(set([trm.header for trm in tools if trm.header]))
-            headers.reverse()  # On inverse pour afficher les plus récents en premier
-            if headers:
-                resp = '\n-# ' + '\n-# '.join(headers[::-1]) + '\n' + resp
-
+            # Traitement des icons et des headers
+            tools_repr = []
+            lines = list(set([trm.tool_repr for trm in tools if trm.tool_repr]))
+            lines.reverse()  # On inverse pour afficher les plus récents en premier
+            if lines:
+                tools_repr = '\n-# ' + '\n-# '.join(lines[::-1]) + '\n'
+                resp = tools_repr + resp
+            
             # On coupe le message en morceaux de 2000 caractères si nécessaire
             while len(resp) > 2000:
                 part = resp[:2000]
@@ -507,10 +513,13 @@ class Chat(commands.Cog):
                 
             tools : list[ToolResponseMessage] = group.get_messages(lambda m: isinstance(m, ToolResponseMessage))
             
-            headers = list(set([trm.header for trm in tools if trm.header]))
-            headers.reverse()  # On inverse pour afficher les plus récents en premier
-            if headers:
-                resp = '\n-# ' + '\n-# '.join(headers[::-1]) + '\n' + resp
+            # Traitement des icons et des headers
+            tools_repr = []
+            lines = list(set([trm.tool_repr for trm in tools if trm.tool_repr]))
+            lines.reverse()  # On inverse pour afficher les plus récents en premier
+            if lines:
+                tools_repr = '\n-# ' + '\n-# '.join(lines[::-1]) + '\n'
+                resp = tools_repr + resp
 
             # On coupe le message en morceaux de 2000 caractères si nécessaire
             while len(resp) > 2000:
