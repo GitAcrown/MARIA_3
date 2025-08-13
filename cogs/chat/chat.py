@@ -93,6 +93,8 @@ class StatusUpdaterAgent:
         - Faire de références à la culture internet, geek, aux jeux vidéo, à la science-fiction etc. même si ce sont des références obscures
         - Le statut est destiné à être lu par de jeunes utilisateurs francophones, avec un humour type "gen Z"
         - Eviter les termes trop techniques ou abstraits
+        - Aucun emoji ni de ponctuation
+        - Ne pas mentionner le nom du bot ou de l'IA
         
         La réponse doit être un JSON avec la clé "status" contenant le texte du statut, sans autres informations.
         """
