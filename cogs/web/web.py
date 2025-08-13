@@ -474,8 +474,7 @@ class Web(commands.Cog):
             'results': results,
             'total_results': len(results)
         }, 
-                                   tool_call.data['id'], 
-                                   icon='<:websearch:1404887181725663304>',
+                                   tool_call.data['id'],
                                    header=f'Recherche de *\"{query}\"*')
     
     def _tool_read_web_page(self, tool_call: ToolCall, context: MessageGroup) -> ToolResponseMessage:
@@ -508,7 +507,7 @@ class Web(commands.Cog):
             'total_chunks': len(chunks),
             'content': chunks[chunk_index],
             'has_more': chunk_index < len(chunks) - 1
-        }, tool_call.data['id'], icon='<:websearch:1404887181725663304>', header=f'Lecture de {header_url}')
+        }, tool_call.data['id'], header=f'Lecture de {header_url}')
     
     def _tool_extract_media_urls(self, tool_call: ToolCall, context: MessageGroup) -> ToolResponseMessage:
         """Outil pour extraire les URLs de contenus multimédias d'une page web."""
@@ -562,7 +561,7 @@ class Web(commands.Cog):
             'limit': limit,
             'statistics': stats,
             'media': results_by_type
-        }, tool_call.data['id'], icon='<:websearch:1404887181725663304>', header=f'Contenus multimédias de {header_url}')
+        }, tool_call.data['id'], header=f'Contenus multimédias de {header_url}')
 
 async def setup(bot):
     await bot.add_cog(Web(bot))

@@ -393,7 +393,6 @@ class Chat(commands.Cog):
         return ToolResponseMessage(
             {'user': f'{user.name} (ID:{user.id})', 'infos': infos},
             tool_call.data['id'],
-            icon='<:userinfo:1404887119876329583>',
             header=f"Consultation des infos de ***{user.name}***"
         )
         
@@ -407,7 +406,6 @@ class Chat(commands.Cog):
             if result.is_integer():
                 result = int(result)
             return ToolResponseMessage({'result': result}, tool_call.data['id'], 
-                                       icon='<:expcalc:1404887073659555972>',
                                        header=f"Calcul de `{expression}`")
         except Exception as e:
             return ToolResponseMessage({'error': str(e)}, tool_call.data['id'])
