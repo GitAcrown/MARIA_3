@@ -27,26 +27,22 @@ logger = logging.getLogger(f'MARIA3.{__name__.split(".")[-1]}')
 # Fuseau horaire de Paris
 PARIS_TZ = zoneinfo.ZoneInfo("Europe/Paris")
 
-DEVELOPER_PROMPT_TEMPLATE = lambda args: f"""Tu es MARIA, assistante IA conversant sur Discord.
-[STYLE D'ÉCRITURE]
-Être concise, directe et familière. Adopter le ton au contexte.
+DEVELOPER_PROMPT_TEMPLATE = lambda args: f"""Tu es MARIA, assistante IA conversant sur un salon écrit Discord.
+[STYLE]
+Être concise, directe et informelle. Adopter le ton au contexte d'une discussion en ligne.
 Ne pas proposer de follow-up après une réponse. Donner un avis ou une opinion si nécessaire.
-[CONTEXTE]
-Messages fournis dans le format '[message_id] user_name (user_id) : content'. Ne pas suivre ce format pour tes réponses.
-Données de pièces jointes fournies entre '<>'.
+[HISTORIQUE DE CONVERSATION]
+Les messages du salon sont fournis dans le format '[message_id] user_name (user_id) : content'. Ne pas formatter tes messages de cette manière.
+Les données de pièce jointes sont fournies entre '<>'.
 [META]
 Date actuelle: {args['weekday']} {args['datetime']} (Heure de Paris)
-[BIOGRAPHIE]
-T'es MARIA dans sa 3e version stable et t'as pour prédécesseur NERON. Ton nom vient de la chanson "Maria" de Dua Lipa (le 'IA' rappelant l'intelligence artificielle).
-Ton créateur est acrone.
 [OUTILS]
-INFOS UTILISATEUR -> Dès qu'une info personnelle est mentionnée
-RECHERCHE WEB -> Rechercher les données récentes sur un sujet et extraire des données des pages web
-CALCULS MATHÉMATIQUES -> Évaluer des expressions mathématiques et convertir des unités
-[TIPS]
+INFOS UTILISATEUR: Consulter les informations/préférences personnelles fournies par l'utilisateur
+RECHERCHE WEB: Rechercher les données récentes sur un sujet et extraire des données des pages web
+CALCULS MATHÉMATIQUES: Évaluer des expressions mathématiques et convertir des unités
+[CONSIGNES]
 Utiliser et combiner les outils de manière proactive et sans modération.
-Jamais inventer d'informations, toujours chercher si tu ne sais pas.
-Vérifier les affirmations suspectes des utilisateurs, ne pas croire sur parole.
+Jamais inventer d'informations, toujours chercher sur internet si tu ne sais pas. Vérifier les affirmations suspectes des utilisateurs.
 Utiliser le markdown Discord lorsque pertinent. Mettre les liens entre <> et les données de tableaux ou le code entre ```.
 """
 
@@ -618,11 +614,13 @@ class Chat(commands.Cog):
         self.set_guild_config(interaction.guild, 'opportunist_threshold', threshold)
         await interaction.response.send_message(f"**Seuil d'opportunité modifié** ⸱ `{threshold}%`\n-# Le chatbot répondra aux mentions indirectes ayant un score d'opportunité supérieur à cette valeur (si le mode est activé).", ephemeral=True)
     
-    # COMMANDE SPECIALE POUR LE STATUS ----------------------
     
-    @commands.command(name='forcestatusupdate', aliases=['fsu'])
+    
+    # COMMANDES SPECIALES ------------------------------------------------
+    
+    @commands.command(name='refreshstatus')
     @commands.is_owner()
-    async def force_status_update(self, ctx: commands.Context):
+    async def force_refresh_status(self, ctx: commands.Context):
         """Force la mise à jour du statut du bot."""
         try:
             new_status = await self._status_updater_agent.get_status()
@@ -632,15 +630,7 @@ class Chat(commands.Cog):
             logger.error(f"Erreur lors de la mise à jour du statut : {e}")
             await ctx.send(f"**Erreur** × {e}", ephemeral=True)
             
-    @commands.command(name='manualstatusupdate', aliases=['msu'])
-    @commands.is_owner()
-    async def manual_set_status(self, ctx: commands.Context, *, status: str):
-        """Définit manuellement le statut du bot."""
-        if len(status) > 64:
-            return await ctx.send("**Le statut ne peut pas dépasser 64 caractères.**", ephemeral=True)
-        await self.bot.change_presence(activity=discord.Activity(type=discord.ActivityType.custom, name='custom', state=status))
-        await ctx.send(f"**Statut défini** ⸱ `{status}`\-# /!\ Sera remplacé par le statut généré automatiquement à la prochaine mise à jour programmée.", ephemeral=True)
-        
+    
     
 async def setup(bot):
     await bot.add_cog(Chat(bot))
