@@ -91,8 +91,8 @@ class StatusUpdaterAgent:
         CONSIGNES:
         - Sois créatif et original, avec un rapport à l'IA sans être cliché
         - Le statut doit avoir du sens
-        - Références à la culture internet, geek, aux jeux vidéo, à la science-fiction etc. encouragées
-        - Destiné à être lu par de jeunes utilisateurs francophones, humour "gen z" apprécié
+        - Langage internet, références à la culture, aux jeux vidéo, à des films ou à la science-fiction encouragées
+        - Destiné à être lu par de jeunes utilisateurs francophones
         - Eviter les termes trop techniques ou abstraits
         - Aucun emoji ni de ponctuation
         - Ne pas mentionner le nom du bot
