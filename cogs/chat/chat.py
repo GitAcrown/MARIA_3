@@ -65,7 +65,7 @@ class UserInfoModal(discord.ui.Modal, title="Préférences et infos"):
         self.userinfo = discord.ui.TextInput(
             label="Vos préférences personnelles",
             style=discord.TextStyle.long,
-            placeholder="Informations ou préférences à partager avec le chatbot",
+            placeholder="Informations ou préférences à partager avec MARIA",
             min_length=0,
             max_length=500
         )
@@ -85,19 +85,14 @@ class StatusUpdaterAgent:
         self.client = client
         self.model = "gpt-4.1-nano"
         self.system_prompt = """
-        Tu dois créer un court texte de statut Discord (en 3-4 mots maximum) en français pour un chatbot IA qui se genre au féminin. 
-        Le statut doit refléter ta fonction de chatbot IA et représenter une action ou un état d'esprit créatif et original.
+        Tu dois créer un court texte de statut Discord (en 3-4 mots maximum) pour un chatbot IA (MARIA) qui se genre au féminin. 
         
-        CONSIGNES CRÉATIVES:
-        - Soit TRÈS original et inventive, évite les clichés sur l'IA
-        - Utilise l'humour, l'absurde, ou des références inattendues
-        - Mélange différents registres : technique/quotidien, sérieux/décalé
-        - Pense aux actions concrètes qu'une IA pourrait "faire" de manière humoristique
-        - Imagine des états d'esprit bizarres ou des activités loufoques
-        - Le langage familier et les jeux de mots sont encouragés
-        - Pas d'emojis ni de ponctuation
-        
-        INSPIRATION (ne pas copier) : activités du quotidien détournées, références culturelles niche, métaphores inattendues, situations absurdes liées aux données/calculs/conversations.
+        CONSIGNES:
+        - Sois très créatif et original, pas de clichés sur l'IA, les chatbots ou les robots tout en gardant un rapport vague avec l'IA
+        - Utiliser un ton humoristique, décalé et absurde
+        - Faire de références à la culture internet, geek, aux jeux vidéo, à la science-fiction etc. même si ce sont des références obscures
+        - Le statut est destiné à être lu par de jeunes utilisateurs francophones, avec un humour type "gen Z"
+        - Eviter les termes trop techniques ou abstraits
         
         La réponse doit être un JSON avec la clé "status" contenant le texte du statut, sans autres informations.
         """
@@ -196,7 +191,7 @@ class Chat(commands.Cog):
         self.bot = bot
         self.data = dataio.get_instance(self)
         
-        # CONFIG
+        # Paramètres du chatbot sur les serveurs
         guild_config = dataio.DictTableBuilder(
             name='guild_config',
             default_values={
@@ -206,6 +201,7 @@ class Chat(commands.Cog):
         )
         self.data.map_builders(discord.Guild, guild_config)
         
+        # Informations personnalisées des utilisateurs
         user_custom = dataio.TableBuilder(
             '''CREATE TABLE IF NOT EXISTS user_custom (
                 user_id INTEGER PRIMARY KEY,
@@ -213,6 +209,7 @@ class Chat(commands.Cog):
                 last_update TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )'''
         )
+
         self.data.map_builders('global', user_custom)
         
         # Agents
@@ -549,12 +546,12 @@ class Chat(commands.Cog):
             params_info += f"Seuil d'opportunité : `{config['opportunist_threshold']}%`"
         embed.add_field(name="Paramètres globaux", value=params_info, inline=True)
         embed.set_thumbnail(url=self.bot.user.display_avatar.url)
-        embed.set_footer(text=f"Utilisez /chatbot pour configurer le chatbot")
+        embed.set_footer(text=f"Utilisez /chatbot pour configurer MARIA")
         await interaction.response.send_message(embed=embed)
         
     @app_commands.command(name='preferences')
     async def preferences(self, interaction: Interaction):
-        """Afficher ou modifier vos préférences communiquées au chatbot."""
+        """Afficher ou modifier vos préférences communiquées à MARIA."""
         user_info = self.get_user_custom(interaction.user)
         modal = UserInfoModal()
         if user_info:
