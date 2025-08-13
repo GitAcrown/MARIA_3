@@ -94,9 +94,8 @@ class StatusUpdaterAgent:
         - Utilise l'humour absurde, l'autodérision, les détournements de phrases connues
         - Pense comme si l'IA avait une personnalité quirky et sarcastique
         - Exemples d'inspiration : "debug mes sentiments", "404 café introuvable", "compile du drama", "patch anti-social", "respawn en cours"
-        - Eviter les trucs comme "je calcule", "j'analyse", "je traite", "données", "algorithme" et autres termes trop cliché IA
+        - Eviter les trucs comme "je calcule", "j'analyse", "je traite", "réseau neuronal", "algorithme" et autres termes trop cliché IA
         - Destiné à faire sourire de jeunes utilisateurs francophones
-        - Évite "intelligence artificielle", "algorithme", "réseau neuronal" et autres termes bateau
         - Aucun emoji ni ponctuation
         - Ne pas mentionner le nom du bot
         
