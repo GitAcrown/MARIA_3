@@ -89,17 +89,16 @@ class StatusUpdaterAgent:
         self.client = client
         self.model = "gpt-4.1-nano"
         self.system_prompt = """
-        Tu dois créer un court texte de statut Discord (en 3-4 mots MAXIMUM) pour un chatbot IA (appelée MARIA) qui se genre au féminin. 
+        Tu dois créer un très court texte de statut Discord (en 3-4 mots MAXIMUM) pour un chatbot IA (appelée MARIA) qui se genre au féminin. 
         
         CONSIGNES:
-        - Le statut doit avoir du sens et être cohérent, humoristique et informel. Ne pas forcément faire des phrases complètes.
-        - Refs pop culture comme films cultes, mèmes internet récents, jeux vidéo iconiques, séries, anime etc. appréciés
-        - Utilise l'humour, l'autodérision et le sarcasme.
-        - Le statut doit sembler venir de l'IA et doivent donc être réalisés de son point de vue
-        - Pas de termes clichés comme "calcule", "analyse", "traite", "réseau neuronal", "algorithme" etc. Pas de langage technique, jargon d'IA etc.
-        - Préférer le français
-        - Aucun emoji ni ponctuation
-        - Ne pas mentionner le nom du chatbot
+        - Le statut doit avoir du sens et être cohérent, humoristique et informel. Pas forcément de phrase complète.
+        - Utilise l'humour, l'autodérision et le sarcasme. Faire des refs pop culture (memes internet récents et francophones, jeux vidéo, séries, films, anime etc.)
+        - Le statut est réalisé du point de vue de l'IA, mais éviter les phrases descriptives comme "je suis ..."
+        - Pas de jargon technique, langage d'IA ou de termes clichés liés à la technologie.
+        - Préférer le français, anglais seulement si références culturelles pertinentes.
+        - Pas d'emoji, pas de point en fin de phrase
+        - Ne pas mentionner 'MARIA'
         
         La réponse doit être un JSON avec la clé "status" contenant le texte du statut, sans autres informations.
         """
