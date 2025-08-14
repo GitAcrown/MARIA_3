@@ -84,13 +84,13 @@ class UserInfoModal(discord.ui.Modal, title="Mémoire de MARIA"):
     async def on_error(self, interaction: Interaction, error: Exception) -> None:
         return await interaction.response.send_message(f"**Erreur** × {error}", ephemeral=True)
 
-class TranscriptPrompt(discord.ui.Modal, title="Indications de transcription"):
+class TranscriptPrompt(discord.ui.Modal, title="Transcription avancée"):
     def __init__(self) -> None:
         super().__init__(timeout=None)
         self.audioprompt = discord.ui.TextInput(
-            label="Prompt de transcription",
+            label="Guide de transcription",
             style=discord.TextStyle.short,
-            placeholder="Indications pour la transcription audio",
+            placeholder="Aidez MARIA à comprendre le contenu audio",
             min_length=0,
             max_length=200,
             required=False
