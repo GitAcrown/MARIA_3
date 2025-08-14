@@ -392,12 +392,17 @@ class Chat(commands.Cog):
                 tool_call.data['id']
             )
             
+        header = f"Consultation des infos de ***{user.name}***"
+        if context.fetch_author().id == user.id:
+            header = "Consultation de vos infos"
+            
         # On récupère les infos personnalisées
         infos = self.get_user_custom(user)
         if infos is None:
             return ToolResponseMessage(
                 {'error': "Aucune information personnalisée trouvée pour cet utilisateur."},
-                tool_call.data['id']
+                tool_call.data['id'],
+                header=header
             )
         
         # S'assurer que infos est bien une chaîne
@@ -407,7 +412,7 @@ class Chat(commands.Cog):
         return ToolResponseMessage(
             {'user': f'{user.name} (ID:{user.id})', 'infos': infos},
             tool_call.data['id'],
-            header=f"Consultation des infos de ***{user.name}***"
+            header=header
         )
         
     def _tool_update_user_info(self, tool_call: ToolCall, context: MessageGroup) -> ToolResponseMessage:
@@ -426,12 +431,14 @@ class Chat(commands.Cog):
                 {'error': "Utilisateur non trouvé."},
                 tool_call.data['id']
             )
+            
         # On vérifie que l'utilisateur dont on modifie les infos est bien celui qui a appelé l'outil
         if context.fetch_author().id != user.id:
             return ToolResponseMessage(
                 {'error': f"L'ID du demandeur ({context.fetch_author().id}) doit correspondre à l'ID de l'utilisateur dont on modifie les infos ({user.id})."},
                 tool_call.data['id']
             )
+            
         # On met à jour les infos personnalisées
         current = self.get_user_custom(user)
         if len(infos) > 500:
@@ -452,7 +459,7 @@ class Chat(commands.Cog):
             return ToolResponseMessage(
                 {'old_content': current, 'new_content': infos},
                 tool_call.data['id'],
-                header=f"Mise à jour des infos de ***{user.name}***"
+                header=f"Mise à jour de vos infos"
             )
         
     def _tool_math_eval(self, tool_call: ToolCall, context: MessageGroup) -> ToolResponseMessage:
