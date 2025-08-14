@@ -616,9 +616,9 @@ class Chat(commands.Cog):
         embed.set_footer(text=f"Utilisez /chatbot pour configurer MARIA")
         await interaction.response.send_message(embed=embed)
         
-    @app_commands.command(name='mémoire')
+    @app_commands.command(name='memoire')
     async def cmd_memory(self, interaction: Interaction):
-        """Afficher ou modifier vos préférences communiquées à MARIA."""
+        """Afficher et modifier vos informations personnelles communiquées à MARIA."""
         user_info = self.get_user_custom(interaction.user)
         modal = UserInfoModal()
         if user_info:
