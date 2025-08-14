@@ -52,6 +52,7 @@ if not TEMP_DIR.exists():
 VIDEO_ANALYSIS_DEV_PROMPT = "A partir des éléments fournis (images et transcription audio) qui ont été extraits d'une vidéo, réalise une description EXTREMEMENT DÉTAILLÉE (sujets, actions, scène, apparences etc.). Ne répond qu'avec cette description sans aucun autre texte. Les images sont fournies dans l'ordre chronologique et sont des frames extraites à intervalles égaux de la vidéo."
 VIDEO_ANALYSIS_TEMPERATURE = 0.15
 VIDEO_ANALYSIS_COMPLETION_MODEL = 'gpt-4.1-nano'
+VIDEO_ANALYSIS_AUDIO_MODEL = 'gpt-4o-mini-transcribe'
 VIDEO_ANALYSIS_MAX_COMPLETION_TOKENS = 1000
 VIDEO_ANALYSIS_MAX_ANALYSIS_FILE_SIZE = 20 * 1024 * 1024 # 20 Mo
 VIDEO_ANALYSIS_NB_IMAGES_EXTRACTED = 10
@@ -313,14 +314,18 @@ class ChatbotAgent:
     async def extract_audio_transcript(self,
                                         audio_file: io.BytesIO | Path | str,
                                         *,
+                                        model: str | None = None,
+                                        prompt: str = '',
                                         close_binary: bool = True,
                                         unlink_path: bool = True) -> str:
         if isinstance(audio_file, io.BytesIO):
             audio_file.seek(0)
+        
         try:
             transcript = await self.client.audio.transcriptions.create(
-                model=self.transcription_model,
-                file=audio_file
+                model=model if model else self.transcription_model,
+                file=audio_file,
+                prompt=prompt
             )
         except openai.BadRequestError as e:
             logger.error(f"Erreur de transcription : {e}")
@@ -501,12 +506,12 @@ class ChatbotAgent:
                 try:
                     # Essayer avec les nouveaux paramètres
                     audio.write_audiofile(str(audio_path), verbose=False, logger=None)
-                    audio_transcript = await self.extract_audio_transcript(audio_file=audio_path)
+                    audio_transcript = await self.extract_audio_transcript(audio_file=audio_path, model=VIDEO_ANALYSIS_AUDIO_MODEL)
                 except TypeError as te:
                     # Fallback pour les anciennes versions de moviepy
                     try:
                         audio.write_audiofile(str(audio_path))
-                        audio_transcript = await self.extract_audio_transcript(audio_file=audio_path)
+                        audio_transcript = await self.extract_audio_transcript(audio_file=audio_path, model=VIDEO_ANALYSIS_AUDIO_MODEL)
                     except Exception as e:
                         logger.warning(f"Erreur extraction audio (fallback) : {e}")
                         audio_transcript = "AUDIO_EXTRACTION_FAILED"

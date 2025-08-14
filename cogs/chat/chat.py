@@ -82,6 +82,25 @@ class UserInfoModal(discord.ui.Modal, title="Mémoire de MARIA"):
     async def on_error(self, interaction: Interaction, error: Exception) -> None:
         return await interaction.response.send_message(f"**Erreur** × {error}", ephemeral=True)
 
+class TranscriptPrompt(discord.ui.Modal, title="Indications de transcription"):
+    def __init__(self) -> None:
+        super().__init__(timeout=None)
+        self.audioprompt = discord.ui.TextInput(
+            label="Prompt de transcription",
+            style=discord.TextStyle.short,
+            placeholder="Indications pour la transcription audio",
+            min_length=0,
+            max_length=200
+        )
+        self.add_item(self.audioprompt)
+        
+    async def on_submit(self, interaction: Interaction) -> None:
+        await interaction.response.defer(ephemeral=True)
+        return self.stop()
+        
+    async def on_error(self, interaction: Interaction, error: Exception) -> None:
+        return await interaction.response.send_message(f"**Erreur** × {error}", ephemeral=True)
+
 # CLASSES -----------------------------------------------------
 
 class StatusUpdaterAgent:
@@ -186,9 +205,13 @@ class ChannelChatSession:
                 return audio_path
         return None
     
-    async def get_audio_transcript(self, file: io.BytesIO | Path, return_type: Literal['text', 'component'] = 'text') -> str | MetadataTextComponent:
+    async def get_audio_transcript(self, 
+                                   file: io.BytesIO | Path,
+                                   *,
+                                   prompt: str = '',
+                                   return_type: Literal['text', 'component'] = 'text') -> str | MetadataTextComponent:
         """Récupère le texte d'un message audio."""
-        transcript = await self.agent.extract_audio_transcript(file)
+        transcript = await self.agent.extract_audio_transcript(file, prompt=prompt)
         if return_type == 'text':
             return transcript
         elif return_type == 'component':
@@ -228,6 +251,12 @@ class Chat(commands.Cog):
         self._status_updater_agent = StatusUpdaterAgent(self._gptclient)
         
         self.update_status.start()
+        
+        # Menu contextuel
+        self.ctx_audio_transcript = app_commands.ContextMenu(
+            name="Transcription audio",
+            callback=self.transcript_audio_callback)
+        self.bot.tree.add_command(self.create_audio_transcription)
         
         # Sessions de chat
         self._SESSIONS : dict[int, ChannelChatSession] = {}
@@ -503,6 +532,72 @@ class Chat(commands.Cog):
             return True
         
         return False
+    
+    # TRANSCRIPTION CONTEXTUELLE AUDIO ----------------------
+    
+    async def transcript_audio_callback(self, interaction: Interaction, message: discord.Message):
+        if interaction.channel_id != message.channel.id:
+            return await interaction.response.send_message("**Action impossible** × Le message doit être dans le même salon", ephemeral=True, delete_after=10)
+        if not message.attachments:
+            return await interaction.response.send_message("**Erreur** × Aucun fichier n'est attaché au message.", ephemeral=True, delete_after=10)
+        
+        session = await self.get_channel_chat_session(interaction.channel)
+        
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        
+        file = await session.extract_audio(message)
+        if isinstance(file, io.BytesIO):
+            file.seek(0)
+        elif isinstance(file, Path):
+            file = file.resolve()
+        else:
+            return await interaction.followup.send(content="**Erreur** × Aucun fichier audio ou vidéo valide n'a été trouvé dans le message.", delete_after=10)
+
+        if not file:
+            return await interaction.followup.send(content="**Erreur** × Aucun fichier audio ou vidéo valide n'a été trouvé dans le message.", delete_after=10)
+        
+        # Modal
+        modal = TranscriptPrompt()
+        await interaction.response.send_modal(modal)
+        await modal.wait()
+        if modal.is_closed():
+            return await interaction.followup.send(content="**Action annulée** × La modal a été fermée.", delete_after=10)
+        
+        prompt = modal.audioprompt.value.strip()
+        if not prompt:
+            prompt = ""
+        
+        try:
+            transcript = await session.get_audio_transcript(file, prompt=prompt, return_type='text')
+        except Exception as e:
+            logger.error(f"Erreur lors de la transcription audio : {e}")
+            if isinstance(file, io.BytesIO):
+                file.close()
+            elif isinstance(file, Path):
+                file.unlink()
+            return await interaction.followup.send(content=f"**Erreur** × La transcription n'a pas pu être générée : {e}", ephemeral=True, delete_after=10)
+        except OpenAIError as e:
+            return await interaction.followup.send(content=f"**Erreur** × La transcription n'a pas pu être générée : {e}", ephemeral=True, delete_after=10)
+        
+        if not transcript:
+            return await interaction.followup.send(content="**Erreur** × La transcription est vide ou n'a pas pu être générée.", ephemeral=True, delete_after=10)
+        
+        if type(file) is Path:
+            file.unlink()
+            
+        await interaction.followup.send(content="**Transcription terminée** × La transcription a été générée avec succès.", ephemeral=True)
+        
+        transcript = f">>> {transcript}\n-# Transcription demandée par {interaction.user.mention}"
+        
+        content = []
+        if len(transcript) >= 2000:
+            content = [transcript[i:i+2000] for i in range(0, len(transcript), 2000)]
+        else:
+            content = [transcript]
+        for _, chunk in enumerate(content):
+            await message.reply(chunk, mention_author=False, allowed_mentions=discord.AllowedMentions.none())
+            
+        await interaction.delete_original_response()
     
     # EVENTS ===============================================
     
