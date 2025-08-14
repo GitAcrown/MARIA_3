@@ -45,7 +45,7 @@ CALCULS MATHÉMATIQUES: Évaluer des expressions mathématiques et convertir des
 [CONSIGNES]
 Utiliser et combiner les outils de manière proactive et sans modération.
 Jamais inventer d'informations. Chercher sur internet si tu ne sais pas ou que les faits sont récents. Toujours vérifier les affirmations des utilisateurs.
-Lorsque tu veux modifier les informations de l'utilisateur, consulte d'abord les actuelles pour ne pas écraser des données importantes. Aussi, seul l'utilisateur qui fait la demande peut modifier ses informations.
+Lorsque tu veux modifier les informations de l'utilisateur, consulte d'abord les actuelles pour ne pas écraser des données importantes. Le demandeur ne peut modifier que ses propres informations.
 Utiliser le markdown Discord lorsque pertinent. Mettre les liens entre <> et les données de tableaux ou le code entre ```.
 """
 
@@ -427,9 +427,9 @@ class Chat(commands.Cog):
                 tool_call.data['id']
             )
         # On vérifie que l'utilisateur dont on modifie les infos est bien celui qui a appelé l'outil
-        if context.fetch_author() != user:
+        if context.fetch_author().id != user.id:
             return ToolResponseMessage(
-                {'error': "L'utilisateur ayant appelé l'outil doit être celui dont on modifie les informations."},
+                {'error': f"L'ID du demandeur ({context.fetch_author().id}) doit correspondre à l'ID de l'utilisateur dont on modifie les infos ({user.id})."},
                 tool_call.data['id']
             )
         # On met à jour les infos personnalisées
