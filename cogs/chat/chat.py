@@ -552,7 +552,7 @@ class Chat(commands.Cog):
         await interaction.response.send_modal(modal)
         await modal.wait()
         if modal.is_finished():
-            return await interaction.followup.send(content="**Action annulée** × La modal a été fermée.", delete_after=10)
+            return await interaction.followup.send(content="**Action annulée** × La modal a été fermée.", ephemeral=True)
         
         prompt = modal.audioprompt.value.strip()
         if not prompt:
@@ -566,12 +566,12 @@ class Chat(commands.Cog):
                 file.close()
             elif isinstance(file, Path):
                 file.unlink()
-            return await interaction.followup.send(content=f"**Erreur** × La transcription n'a pas pu être générée : {e}", ephemeral=True, delete_after=10)
+            return await interaction.followup.send(content=f"**Erreur** × La transcription n'a pas pu être générée : {e}", ephemeral=True)
         except OpenAIError as e:
-            return await interaction.followup.send(content=f"**Erreur** × La transcription n'a pas pu être générée : {e}", ephemeral=True, delete_after=10)
+            return await interaction.followup.send(content=f"**Erreur** × La transcription n'a pas pu être générée : {e}", ephemeral=True)
         
         if not transcript:
-            return await interaction.followup.send(content="**Erreur** × La transcription est vide ou n'a pas pu être générée.", ephemeral=True, delete_after=10)
+            return await interaction.followup.send(content="**Erreur** × La transcription est vide ou n'a pas pu être générée.", ephemeral=True)
         
         if type(file) is Path:
             file.unlink()
