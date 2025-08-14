@@ -39,12 +39,13 @@ Les données de pièce jointes sont fournies entre '<>'.
 Date actuelle: {args['weekday']} {args['datetime']} (Heure de Paris)
 Limite de connaissance: Juin 2024
 [OUTILS]
-INFOS UTILISATEUR: Consulter les informations/préférences personnelles fournies par l'utilisateur
+INFOS UTILISATEUR: Consulter et mettre à jour les informations personnelles de l'utilisateur
 RECHERCHE WEB: Rechercher les données récentes sur un sujet et extraire des données des pages web
 CALCULS MATHÉMATIQUES: Évaluer des expressions mathématiques et convertir des unités
 [CONSIGNES]
 Utiliser et combiner les outils de manière proactive et sans modération.
 Jamais inventer d'informations. Chercher sur internet si tu ne sais pas ou que les faits sont récents. Toujours vérifier les affirmations des utilisateurs.
+Lorsque tu veux modifier les informations de l'utilisateur, consulte d'abord les actuelles pour ne pas écraser des données importantes. Aussi, seul l'utilisateur qui fait la demande peut modifier ses informations.
 Utiliser le markdown Discord lorsque pertinent. Mettre les liens entre <> et les données de tableaux ou le code entre ```.
 """
 
@@ -61,13 +62,13 @@ if not TEMP_DIR.exists():
 
 # UI ========================================================================
 
-class UserInfoModal(discord.ui.Modal, title="Préférences et infos"):
+class UserInfoModal(discord.ui.Modal, title="Mémoire de MARIA"):
     def __init__(self) -> None:
         super().__init__(timeout=None)
         self.userinfo = discord.ui.TextInput(
-            label="Vos préférences personnelles",
+            label="Informations personnelles",
             style=discord.TextStyle.long,
-            placeholder="Informations ou préférences à partager avec MARIA",
+            placeholder="Vos informations à partager avec MARIA",
             min_length=0,
             max_length=500
         )
@@ -235,15 +236,30 @@ class Chat(commands.Cog):
         # Outils
         self.GLOBAL_TOOLS = [
             Tool(
-                name='user_info',
-                description='Consulter les informations personnelles et préférences de l’utilisateur.',
+                name='get_user_info',
+                description="Consulter les informations personnelles de l'utilisateur.",
                 properties={
                     'user_id': {
                         'type': 'integer',
                         'description': "L'ID de l'utilisateur"
                     }
                 },
-                function=self._tool_user_info
+                function=self._tool_get_user_info
+            ),
+            Tool(
+                name='update_user_info',
+                description="Mettre à jour les informations personnelles de l'utilisateur. Ne JAMAIS changer avant d'avoir préalablement consulté les infos de l'utilisateur avec 'get_user_info'.",
+                properties={
+                    'user_id': {
+                        'type': 'integer',
+                        'description': "L'ID de l'utilisateur"
+                    },
+                    'infos': {
+                        'type': 'string',
+                        'description': "Les nouvelles informations à enregistrer pour l'utilisateur (écrase les précédentes, max. 500 caractères)"
+                    }
+                },
+                function=self._tool_update_user_info
             ),
             Tool(
                 name='math_eval',
@@ -359,7 +375,7 @@ class Chat(commands.Cog):
                         self.GLOBAL_TOOLS.append(tool)
                         logger.info(f"i --- Outil '{tool.name}' ajouté depuis '{cog.qualified_name}'")
                         
-    def _tool_user_info(self, tool_call: ToolCall, context: MessageGroup) -> ToolResponseMessage:
+    def _tool_get_user_info(self, tool_call: ToolCall, context: MessageGroup) -> ToolResponseMessage:
         """Outil pour récupérer les informations utilisateur."""
         user_id = tool_call.arguments.get('user_id')
         if user_id is None:
@@ -393,6 +409,51 @@ class Chat(commands.Cog):
             tool_call.data['id'],
             header=f"Consultation des infos de ***{user.name}***"
         )
+        
+    def _tool_update_user_info(self, tool_call: ToolCall, context: MessageGroup) -> ToolResponseMessage:
+        """Outil pour mettre à jour les informations utilisateur."""
+        user_id = tool_call.arguments.get('user_id')
+        infos = tool_call.arguments.get('infos')
+        if user_id is None or infos is None:
+            return ToolResponseMessage(
+                {'error': "L'ID utilisateur et les informations sont requis."},
+                tool_call.data['id']
+            )
+        # On vérifie que l'utilisateur existe
+        user = self.bot.get_user(user_id)
+        if user is None:
+            return ToolResponseMessage(
+                {'error': "Utilisateur non trouvé."},
+                tool_call.data['id']
+            )
+        # On vérifie que l'utilisateur dont on modifie les infos est bien celui qui a appelé l'outil
+        if context.fetch_author() != user:
+            return ToolResponseMessage(
+                {'error': "L'utilisateur ayant appelé l'outil doit être celui dont on modifie les informations."},
+                tool_call.data['id']
+            )
+        # On met à jour les infos personnalisées
+        current = self.get_user_custom(user)
+        if len(infos) > 500:
+            return ToolResponseMessage(
+                {'error': "Les informations ne doivent pas dépasser 500 caractères.", 'old_content': current or ''},
+                tool_call.data['id']
+            )
+        
+        if current is None:
+            self.update_user_custom(user, infos)
+            return ToolResponseMessage(
+                {'old_content': '', 'new_content': infos},
+                tool_call.data['id'],
+                header=f"Mise à jour des infos de ***{user.name}***"
+            )
+        else:
+            self.update_user_custom(user, infos)
+            return ToolResponseMessage(
+                {'old_content': current, 'new_content': infos},
+                tool_call.data['id'],
+                header=f"Mise à jour des infos de ***{user.name}***"
+            )
         
     def _tool_math_eval(self, tool_call: ToolCall, context: MessageGroup) -> ToolResponseMessage:
         expression = tool_call.arguments.get('expression')
@@ -532,7 +593,7 @@ class Chat(commands.Cog):
     # COMMANDES =====================================================
     
     @app_commands.command(name='info')
-    async def info(self, interaction: Interaction):
+    async def cmd_info(self, interaction: Interaction):
         """Affiche des informations sur le bot et son utilisation."""
         bot_name = self.bot.user.name
         if not interaction.guild:
@@ -555,8 +616,8 @@ class Chat(commands.Cog):
         embed.set_footer(text=f"Utilisez /chatbot pour configurer MARIA")
         await interaction.response.send_message(embed=embed)
         
-    @app_commands.command(name='preferences')
-    async def preferences(self, interaction: Interaction):
+    @app_commands.command(name='mémoire')
+    async def cmd_memory(self, interaction: Interaction):
         """Afficher ou modifier vos préférences communiquées à MARIA."""
         user_info = self.get_user_custom(interaction.user)
         modal = UserInfoModal()
