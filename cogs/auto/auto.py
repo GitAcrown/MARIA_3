@@ -18,7 +18,7 @@ logger = logging.getLogger(f'MARIA3.{__name__.split(".")[-1]}')
 
 # CONSTANTES ----------------------------------------------------
 
-TRANSCRIPTION_MODEL = 'whisper-1'
+TRANSCRIPTION_MODEL = 'gpt-4o-transcribe'
 MATH_ANSWER_MODEL = 'gpt-4.1-nano'
 
 PROPOSAL_EMOJI = '<:suggestion:1399517830394937664>'
