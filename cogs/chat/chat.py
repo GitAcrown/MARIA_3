@@ -4,6 +4,7 @@ import os
 import random
 import re
 import zoneinfo
+from collections import deque
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Literal, Union
@@ -228,8 +229,8 @@ class Chat(commands.Cog):
         # Sessions de chat
         self._SESSIONS : dict[int, ChannelChatSession] = {}
         
-        # Messages déjà traités
-        self._processed_messages = set()  # Pour éviter les doublons
+        # Messages déjà traités - utilise une deque pour maintenir l'ordre et limiter la taille
+        self._processed_messages = deque(maxlen=100)  # Pour éviter les doublons
         
         # Outils
         self.GLOBAL_TOOLS = [
@@ -447,6 +448,9 @@ class Chat(commands.Cog):
         if not await self.detect_response(message):
             return
         
+        # Ajouter immédiatement l'ID pour éviter les doublons en cas d'édition rapide
+        self._processed_messages.append(message.id)
+
         async with channel.typing():
             session = await self.get_channel_chat_session(channel)
             group = await session.append_message(message)
@@ -473,10 +477,6 @@ class Chat(commands.Cog):
                 ans_msg = await message.reply(resp, mention_author=False, allowed_mentions=discord.AllowedMentions.none())
             
             group.last_completion.message = ans_msg
-            self._processed_messages.add(message.id)
-            
-        if len(self._processed_messages) > 100:
-            self._processed_messages = set(list(self._processed_messages)[-100:])
             
     @commands.Cog.listener()
     async def on_message_edit(self, before: discord.Message, after: discord.Message):
@@ -498,6 +498,9 @@ class Chat(commands.Cog):
         if not await self.detect_response(after):
             return
         
+        # Ajouter immédiatement l'ID pour éviter les doublons
+        self._processed_messages.append(after.id)
+
         async with channel.typing():
             session = await self.get_channel_chat_session(channel)
             group = await session.append_message(after)
@@ -525,7 +528,6 @@ class Chat(commands.Cog):
                 ans_msg = await after.reply(resp, mention_author=False, allowed_mentions=discord.AllowedMentions.none())
                 
             group.last_completion.message = ans_msg
-            self._processed_messages.add(after.id)
             
     # COMMANDES =====================================================
     
