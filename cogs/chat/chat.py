@@ -93,7 +93,8 @@ class StatusUpdaterAgent:
         
         CONSIGNES:
         - Le statut doit avoir du sens et être cohérent, humoristique et informel. Pas forcément de phrase complète.
-        - Utilise l'humour, l'autodérision et le sarcasme. Faire des refs pop culture (memes internet récents et francophones, jeux vidéo, séries, films, anime etc.)
+        - Utilise l'humour, l'autodérision et le sarcasme. 
+        - Refs à la pop culture appréciés si bien réalisé et pas trop obscure (memes internet récents et francophones, jeux vidéo, séries, films, anime etc.)
         - Le statut est réalisé du point de vue de l'IA, mais éviter les phrases descriptives comme "je suis ..."
         - Pas de jargon technique, langage d'IA ou de termes clichés liés à la technologie.
         - Préférer le français, anglais seulement si références culturelles pertinentes.
