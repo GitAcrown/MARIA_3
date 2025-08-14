@@ -580,6 +580,8 @@ class Chat(commands.Cog):
                     file.unlink()
             
             transcript = f">>> {transcript}\n-# Transcription demandée par {interaction.user.mention}"
+            if prompt:
+                transcript += f" ⸱ *\"{prompt}\"*"
             
             content = []
             if len(transcript) >= 2000:
