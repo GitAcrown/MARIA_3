@@ -256,7 +256,7 @@ class Chat(commands.Cog):
         self.ctx_audio_transcript = app_commands.ContextMenu(
             name="Transcription audio",
             callback=self.transcript_audio_callback)
-        self.bot.tree.add_command(self.create_audio_transcription)
+        self.bot.tree.add_command(self.ctx_audio_transcript)
         
         # Sessions de chat
         self._SESSIONS : dict[int, ChannelChatSession] = {}
