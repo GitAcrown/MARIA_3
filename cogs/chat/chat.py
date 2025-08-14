@@ -254,7 +254,7 @@ class Chat(commands.Cog):
         
         # Menu contextuel
         self.ctx_audio_transcript = app_commands.ContextMenu(
-            name="Transcription audio",
+            name="Transcription audio guidée",
             callback=self.transcript_audio_callback)
         self.bot.tree.add_command(self.ctx_audio_transcript)
         
