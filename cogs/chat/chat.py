@@ -72,7 +72,8 @@ class UserInfoModal(discord.ui.Modal, title="Mémoire de MARIA"):
             style=discord.TextStyle.long,
             placeholder="Vos informations à partager avec MARIA",
             min_length=0,
-            max_length=500
+            max_length=500,
+            required=False
         )
         self.add_item(self.userinfo)
         
@@ -91,7 +92,8 @@ class TranscriptPrompt(discord.ui.Modal, title="Indications de transcription"):
             style=discord.TextStyle.short,
             placeholder="Indications pour la transcription audio",
             min_length=0,
-            max_length=200
+            max_length=200,
+            required=False
         )
         self.add_item(self.audioprompt)
         
