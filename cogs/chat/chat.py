@@ -175,7 +175,7 @@ class ChannelChatSession:
     
     # Transcription audio
     async def extract_audio(self, message: discord.Message) -> io.BytesIO | Path | None:
-        """Extrait le texte d'un message audio."""
+        """Extrait le fichier audio d'un message (audio ou vidéo)."""
         for attachment in message.attachments:
             # Message audio
             if attachment.content_type and attachment.content_type.startswith('audio'):
@@ -543,24 +543,15 @@ class Chat(commands.Cog):
         
         session = await self.get_channel_chat_session(interaction.channel)
         
-        await interaction.response.defer(ephemeral=True, thinking=True)
-        
         file = await session.extract_audio(message)
-        if isinstance(file, io.BytesIO):
-            file.seek(0)
-        elif isinstance(file, Path):
-            file = file.resolve()
-        else:
-            return await interaction.followup.send(content="**Erreur** × Aucun fichier audio ou vidéo valide n'a été trouvé dans le message.", delete_after=10)
-
         if not file:
-            return await interaction.followup.send(content="**Erreur** × Aucun fichier audio ou vidéo valide n'a été trouvé dans le message.", delete_after=10)
+            return await interaction.response.send_message(content="**Erreur** × Aucun fichier audio ou vidéo valide n'a été trouvé dans le message.", ephemeral=True, delete_after=10)
         
         # Modal
         modal = TranscriptPrompt()
         await interaction.response.send_modal(modal)
         await modal.wait()
-        if modal.is_closed():
+        if modal.is_finished():
             return await interaction.followup.send(content="**Action annulée** × La modal a été fermée.", delete_after=10)
         
         prompt = modal.audioprompt.value.strip()
