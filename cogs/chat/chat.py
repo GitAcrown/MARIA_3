@@ -4,6 +4,7 @@ import os
 import random
 import re
 import zoneinfo
+import asyncio
 from collections import deque
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -552,43 +553,43 @@ class Chat(commands.Cog):
         await interaction.response.send_modal(modal)
         await modal.wait()
         if modal.is_finished():
-            return await interaction.followup.send(content="**Action annulée** × La modal a été fermée.", ephemeral=True)
-        
-        prompt = modal.audioprompt.value.strip()
-        if not prompt:
-            prompt = ""
-        
-        try:
-            transcript = await session.get_audio_transcript(file, prompt=prompt, return_type='text')
-        except Exception as e:
-            logger.error(f"Erreur lors de la transcription audio : {e}")
-            if isinstance(file, io.BytesIO):
-                file.close()
-            elif isinstance(file, Path):
+            
+            prompt = modal.audioprompt.value.strip()
+            if not prompt:
+                prompt = ""
+            
+            try:
+                transcript = await session.get_audio_transcript(file, prompt=prompt, return_type='text')
+            except Exception as e:
+                logger.error(f"Erreur lors de la transcription audio : {e}")
+                if isinstance(file, io.BytesIO):
+                    file.close()
+                elif isinstance(file, Path):
+                    file.unlink()
+                return await interaction.followup.send(content=f"**Erreur** × La transcription n'a pas pu être générée : {e}", ephemeral=True)
+            except OpenAIError as e:
+                return await interaction.followup.send(content=f"**Erreur** × La transcription n'a pas pu être générée : {e}", ephemeral=True)
+            
+            if not transcript:
+                return await interaction.followup.send(content="**Erreur** × La transcription est vide ou n'a pas pu être générée.", ephemeral=True)
+            
+            if type(file) is Path:
                 file.unlink()
-            return await interaction.followup.send(content=f"**Erreur** × La transcription n'a pas pu être générée : {e}", ephemeral=True)
-        except OpenAIError as e:
-            return await interaction.followup.send(content=f"**Erreur** × La transcription n'a pas pu être générée : {e}", ephemeral=True)
-        
-        if not transcript:
-            return await interaction.followup.send(content="**Erreur** × La transcription est vide ou n'a pas pu être générée.", ephemeral=True)
-        
-        if type(file) is Path:
-            file.unlink()
+                
+            await interaction.followup.send(content="**Transcription terminée** × La transcription a été générée avec succès.", ephemeral=True)
             
-        await interaction.followup.send(content="**Transcription terminée** × La transcription a été générée avec succès.", ephemeral=True)
-        
-        transcript = f">>> {transcript}\n-# Transcription demandée par {interaction.user.mention}"
-        
-        content = []
-        if len(transcript) >= 2000:
-            content = [transcript[i:i+2000] for i in range(0, len(transcript), 2000)]
-        else:
-            content = [transcript]
-        for _, chunk in enumerate(content):
-            await message.reply(chunk, mention_author=False, allowed_mentions=discord.AllowedMentions.none())
+            transcript = f">>> {transcript}\n-# Transcription demandée par {interaction.user.mention}"
             
-        await interaction.delete_original_response()
+            content = []
+            if len(transcript) >= 2000:
+                content = [transcript[i:i+2000] for i in range(0, len(transcript), 2000)]
+            else:
+                content = [transcript]
+            for _, chunk in enumerate(content):
+                await message.reply(chunk, mention_author=False, allowed_mentions=discord.AllowedMentions.none())
+                
+            await asyncio.sleep(10)
+            await interaction.delete_original_response()
     
     # EVENTS ===============================================
     
