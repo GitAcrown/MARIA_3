@@ -255,7 +255,7 @@ class Chat(commands.Cog):
         
         # Menu contextuel
         self.ctx_audio_transcript = app_commands.ContextMenu(
-            name="Transcription audio guidée",
+            name="Transcription avancée",
             callback=self.transcript_audio_callback)
         self.bot.tree.add_command(self.ctx_audio_transcript)
         
@@ -558,25 +558,24 @@ class Chat(commands.Cog):
             if not prompt:
                 prompt = ""
             
-            try:
-                transcript = await session.get_audio_transcript(file, prompt=prompt, return_type='text')
-            except Exception as e:
-                logger.error(f"Erreur lors de la transcription audio : {e}")
-                if isinstance(file, io.BytesIO):
-                    file.close()
-                elif isinstance(file, Path):
-                    file.unlink()
-                return await interaction.followup.send(content=f"**Erreur** × La transcription n'a pas pu être générée : {e}", ephemeral=True)
-            except OpenAIError as e:
-                return await interaction.followup.send(content=f"**Erreur** × La transcription n'a pas pu être générée : {e}", ephemeral=True)
-            
-            if not transcript:
-                return await interaction.followup.send(content="**Erreur** × La transcription est vide ou n'a pas pu être générée.", ephemeral=True)
-            
-            if type(file) is Path:
-                file.unlink()
+            async with interaction.channel.typing():
+                try:
+                    transcript = await session.get_audio_transcript(file, prompt=prompt, return_type='text')
+                except Exception as e:
+                    logger.error(f"Erreur lors de la transcription audio : {e}")
+                    if isinstance(file, io.BytesIO):
+                        file.close()
+                    elif isinstance(file, Path):
+                        file.unlink()
+                    return await interaction.followup.send(content=f"**Erreur** × La transcription n'a pas pu être générée : {e}", ephemeral=True)
+                except OpenAIError as e:
+                    return await interaction.followup.send(content=f"**Erreur** × La transcription n'a pas pu être générée : {e}", ephemeral=True)
                 
-            await interaction.followup.send(content="**Transcription terminée** × La transcription a été générée avec succès.", ephemeral=True)
+                if not transcript:
+                    return await interaction.followup.send(content="**Erreur** × La transcription est vide ou n'a pas pu être générée.", ephemeral=True)
+                
+                if type(file) is Path:
+                    file.unlink()
             
             transcript = f">>> {transcript}\n-# Transcription demandée par {interaction.user.mention}"
             
@@ -587,9 +586,6 @@ class Chat(commands.Cog):
                 content = [transcript]
             for _, chunk in enumerate(content):
                 await message.reply(chunk, mention_author=False, allowed_mentions=discord.AllowedMentions.none())
-                
-            await asyncio.sleep(10)
-            await interaction.delete_original_response()
     
     # EVENTS ===============================================
     
