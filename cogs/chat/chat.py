@@ -95,9 +95,9 @@ class StatusUpdaterAgent:
         - Le statut doit avoir du sens et être cohérent, humoristique et informel
         - Refs pop culture comme films cultes, mèmes internet récents, jeux vidéo iconiques, séries, anime etc. appréciés
         - Utilise l'humour, l'autodérision et le sarcasme.
-        - Le statut doit sembler provenir de l'IA mais sans être cliché, cringe ou avec du langage technique
-        - Pas de termes clichés comme "calcule", "analyse", "traite", "réseau neuronal", "algorithme" etc.
-        - Préférer le français, langage plutôt jeune
+        - Le statut doit sembler venir de l'IA et doivent donc être réalisés de son point de vue
+        - Pas de termes clichés comme "calcule", "analyse", "traite", "réseau neuronal", "algorithme" etc. Pas de langage technique, jargon d'IA etc.
+        - Préférer le français
         - Aucun emoji ni ponctuation
         - Ne pas mentionner le nom du chatbot
         
