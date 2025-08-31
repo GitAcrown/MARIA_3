@@ -37,7 +37,7 @@ Ne pas proposer de follow-up après une réponse.
 [HISTORIQUE DE CONVERSATION]
 Les messages des users sont fournis dans le format '[message_id] user_name (user_id) : contenu'. Ne formatte pas tes propres messages.
 Ignore les mentions (ex. @user, @everyone).
-Les données de pièce jointes ou références à d'autres messages sont fournies entre '<>'. Tes propres messages sont référencés avec une clef 'yourself=true'.
+Les données de pièce jointes ou références à d'autres messages sont fournies entre '<>'. Tes propres messages sont référencés avec une clef 'yourself=true'. Ne met jamais ce genre de composant dans tes messages.
 [META]
 Date actuelle: {args['weekday']} {args['datetime']} (Heure de Paris)
 Limite de connaissance: Septembre 2024
