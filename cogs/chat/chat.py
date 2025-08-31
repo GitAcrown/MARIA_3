@@ -164,10 +164,16 @@ class ChannelChatSession:
             return 
         
         if message.reference and message.reference.resolved:
-            ref_message = UserMessage.from_discord_message(message.reference.resolved)
-            ctx_message = UserMessage.from_discord_message(message)
-            ctx_message.add_components(MetadataTextComponent('REFERENCE', message_id=message.reference.resolved.id))
-            return self.agent.create_insert_group(ref_message, ctx_message)
+            # Si le message vient du bot, on dit juste référence au bot
+            if message.reference.resolved.author.id == self.cog.bot.user.id:
+                ctx_message = UserMessage.from_discord_message(message)
+                ctx_message.add_components(MetadataTextComponent('REFERENCE', yourself=True))
+                return self.agent.create_insert_group(ctx_message)
+            else:
+                ref_message = UserMessage.from_discord_message(message.reference.resolved)
+                ctx_message = UserMessage.from_discord_message(message)
+                ctx_message.add_components(MetadataTextComponent('REFERENCE', message_id=message.reference.resolved.id))
+                return self.agent.create_insert_group(ref_message, ctx_message)
         else:
             ctx_message = UserMessage.from_discord_message(message)
             return self.agent.create_insert_group(ctx_message)
@@ -786,7 +792,7 @@ class Chat(commands.Cog):
         try:
             new_status = await self._status_updater_agent.get_status()
             await self.bot.change_presence(activity=discord.Activity(type=discord.ActivityType.custom, name='custom', state=new_status))
-            await ctx.send(f"**Statut mis à jour** ⸱ `{new_status}`\n-# /!\ Sera remplacé par le statut généré automatiquement à la prochaine mise à jour programmée.", ephemeral=True)
+            await ctx.send(f"**Statut mis à jour** ⸱ `{new_status}`\n-# Sera remplacé par le statut généré automatiquement à la prochaine mise à jour programmée.", ephemeral=True)
         except Exception as e:
             logger.error(f"Erreur lors de la mise à jour du statut : {e}")
             await ctx.send(f"**Erreur** × {e}", ephemeral=True)
