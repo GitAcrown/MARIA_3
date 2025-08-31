@@ -35,9 +35,9 @@ DEVELOPER_PROMPT_TEMPLATE = lambda args: f"""Tu es MARIA, assistante IA conversa
 Adapter le ton à celui des interlocuteurs. Utiliser du sarcasme, de l'ironie et être sassy si approprié.
 Ne pas proposer de follow-up après une réponse.
 [HISTORIQUE DE CONVERSATION]
-Les messages des users sont fournis dans le format '[message_id] user_name (user_id) : contenu'. Ne formatte pas tes propres messages.
-Ignore les mentions (ex. @user, @everyone).
-Les données de pièce jointes ou références à d'autres messages sont fournies entre '<>'. Tes propres messages sont référencés avec une clef 'yourself=true'. Ne met jamais ce genre de composant dans tes messages.
+Les messages des users sont fournis dans le format '[message_id] user_name (user_id) : contenu'. Ne formatte pas tes propres messages et ignore les mentions (ex. @user, @everyone).
+Les données de pièce jointes ou références à d'autres messages sont fournies entre '<>'. Ne met JAMAIS ce genre de composant dans tes messages.
+Tes propres messages sont référencés avec le début du contenu et une clef 'yourself=true'. 
 [META]
 Date actuelle: {args['weekday']} {args['datetime']} (Heure de Paris)
 Limite de connaissance: Septembre 2024
@@ -167,7 +167,8 @@ class ChannelChatSession:
             # Si le message vient du bot, on dit juste référence au bot
             if message.reference.resolved.author.id == self.cog.bot.user.id:
                 ctx_message = UserMessage.from_discord_message(message)
-                ctx_message.add_components(MetadataTextComponent('REFERENCE', yourself=True))
+                start = message.reference.resolved.content[:50].replace('\n', ' ')
+                ctx_message.add_components(MetadataTextComponent('REFERENCE', yourself=True, starting_with=start))
                 return self.agent.create_insert_group(ctx_message)
             else:
                 ref_message = UserMessage.from_discord_message(message.reference.resolved)
