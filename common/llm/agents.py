@@ -27,10 +27,9 @@ logger = logging.getLogger(f'MARIA3.agents')
 PARIS_TZ = zoneinfo.ZoneInfo("Europe/Paris")
 
 # Main Chatbot
-MAIN_TEMPERATURE = 0.9
-MAIN_COMPLETION_MODEL = 'gpt-4.1-mini'
+MAIN_COMPLETION_MODEL = 'gpt-5-mini'
 MAIN_TRANSCRIPTION_MODEL = 'gpt-4o-transcribe'
-MAIN_MAX_COMPLETION_TOKENS = 500
+MAIN_MAX_COMPLETION_TOKENS = 1000
 MAIN_CONTEXT_WINDOW = 512 * 32 # 16k tokens
 MAIN_CONTEXT_AGE = timedelta(hours=6)
 
@@ -51,7 +50,7 @@ if not TEMP_DIR.exists():
 
 VIDEO_ANALYSIS_DEV_PROMPT = "A partir des éléments fournis (images et transcription audio) qui ont été extraits d'une vidéo, réalise une description EXTREMEMENT DÉTAILLÉE (sujets, actions, scène, apparences etc.). Ne répond qu'avec cette description sans aucun autre texte. Les images sont fournies dans l'ordre chronologique et sont des frames extraites à intervalles égaux de la vidéo."
 VIDEO_ANALYSIS_TEMPERATURE = 0.15
-VIDEO_ANALYSIS_COMPLETION_MODEL = 'gpt-4.1-nano'
+VIDEO_ANALYSIS_COMPLETION_MODEL = 'gpt-4.1-mini'
 VIDEO_ANALYSIS_AUDIO_MODEL = 'gpt-4o-mini-transcribe'
 VIDEO_ANALYSIS_MAX_COMPLETION_TOKENS = 1000
 VIDEO_ANALYSIS_MAX_ANALYSIS_FILE_SIZE = 20 * 1024 * 1024 # 20 Mo
@@ -71,7 +70,6 @@ class ChatbotAgent:
     def __init__(self,
                  client: AsyncOpenAI,
                  developer_prompt: str,
-                 temperature: float = MAIN_TEMPERATURE,
                  *,
                  completion_model: str = MAIN_COMPLETION_MODEL,
                  transcription_model: str = MAIN_TRANSCRIPTION_MODEL,
@@ -87,7 +85,6 @@ class ChatbotAgent:
         
         # Paramètres de l'agent
         self.developer_prompt = developer_prompt
-        self.temperature = temperature
         self.completion_model = completion_model
         self.transcription_model = transcription_model
         self.max_completion_tokens = max_completion_tokens
@@ -274,8 +271,9 @@ class ChatbotAgent:
             completion = await self.client.chat.completions.create(
                 model=self.completion_model,
                 messages=payload,
-                temperature=self.temperature,
-                max_tokens=self.max_completion_tokens,
+                max_completion_tokens=self.max_completion_tokens,
+                reasoning_effort='low',
+                verbosity='low',
                 tools=tools_dict,
                 parallel_tool_calls=self.tools_parallel_calls
             )
@@ -420,6 +418,10 @@ class ChatbotAgent:
             # Vidéo -> MetadataTextComponent (transcription audio) + ImageURLComponent (thumbnail)
             elif isinstance(obj, VideoAttachment):
                 await self._process_video_attachment(obj, message)
+            
+            # Fichiers texte -> TextComponent
+            elif isinstance(obj, TextFileAttachment):
+                await self._process_text_file_attachment(obj, message)
 
     async def _process_audio_attachment(self, obj: 'AudioAttachment', message: 'ContextMessage') -> bool:
         """Traite un attachment audio et retourne True si traité avec succès."""
@@ -661,6 +663,79 @@ class ChatbotAgent:
                 os.unlink(video_path)
             except OSError:
                 pass
+
+    async def _process_text_file_attachment(self, obj: 'TextFileAttachment', message: 'ContextMessage') -> bool:
+        """Traite un attachment de fichier texte et retourne True si traité avec succès."""
+        try:
+            # Vérification de la taille du fichier (limite à 1MB pour les fichiers texte)
+            max_size = 1024 * 1024  # 1MB
+            if obj.attachment.size > max_size:
+                logger.warning(f"Fichier texte trop volumineux : {obj.attachment.filename} ({obj.attachment.size} bytes)")
+                message.add_components(MetadataTextComponent('TEXT_FILE', 
+                                                           filename=obj.attachment.filename, 
+                                                           size=obj.attachment.size, 
+                                                           error='FILE_TOO_LARGE'))
+                message.remove_attachments(obj)
+                return False
+            
+            # Téléchargement du fichier
+            content_bytes = await obj.attachment.read()
+            
+            # Tentative de décodage du texte avec différents encodages
+            encodings = ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252', 'iso-8859-1']
+            content = None
+            used_encoding = None
+            
+            for encoding in encodings:
+                try:
+                    content = content_bytes.decode(encoding)
+                    used_encoding = encoding
+                    break
+                except UnicodeDecodeError:
+                    continue
+            
+            if content is None:
+                logger.warning(f"Impossible de décoder le fichier texte : {obj.attachment.filename}")
+                message.add_components(MetadataTextComponent('TEXT_FILE', 
+                                                           filename=obj.attachment.filename, 
+                                                           error='ENCODING_ERROR'))
+                message.remove_attachments(obj)
+                return False
+            
+            # Limitation de la longueur du contenu (100k caractères max)
+            max_content_length = 100000
+            if len(content) > max_content_length:
+                content = content[:max_content_length] + "\n... [CONTENU TRONQUÉ]"
+                truncated = True
+            else:
+                truncated = False
+            
+            # Création du composant avec métadonnées et contenu
+            file_extension = obj.attachment.filename.split('.')[-1].lower() if '.' in obj.attachment.filename else 'txt'
+            
+            # Ajout des métadonnées sur le fichier
+            message.add_components(MetadataTextComponent('TEXT_FILE', 
+                                                       filename=obj.attachment.filename,
+                                                       size=obj.attachment.size,
+                                                       encoding=used_encoding,
+                                                       extension=file_extension,
+                                                       truncated=truncated))
+            
+            # Ajout du contenu du fichier
+            formatted_content = f"```{file_extension}\n{content}\n```"
+            message.add_components(TextComponent(formatted_content))
+            
+            message.remove_attachments(obj)
+            logger.info(f"Fichier texte traité avec succès : {obj.attachment.filename}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Erreur lors du traitement du fichier texte {obj.attachment.filename} : {e}")
+            message.add_components(MetadataTextComponent('TEXT_FILE', 
+                                                       filename=obj.attachment.filename, 
+                                                       error='PROCESSING_ERROR'))
+            message.remove_attachments(obj)
+            return False
 
 class OpportunisticAgent:
     """Agent détectant l'opportunité de répondre à un message en attribuant un score de pertinence."""

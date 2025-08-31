@@ -284,6 +284,7 @@ class UserMessage(ContextMessage):
     def from_discord_message(cls, message: discord.Message,
                              context_format: str = '[{message.id}] {message.author.name} ({message.author.id})',
                              include_embeds: bool = True,
+                             inclure_views: bool = True,
                              include_attachments: bool = True,
                              include_stickers: bool = True) -> 'UserMessage':
         components = []
@@ -308,6 +309,67 @@ class UserMessage(ContextMessage):
                     components.append(ImageURLComponent(embed.image.url, detail='high'))
                 if embed.thumbnail and embed.thumbnail.url:
                     components.append(ImageURLComponent(embed.thumbnail.url, detail='low'))
+                    
+        if inclure_views and message.components:
+            # Extraction améliorée avec walk_children() pour parcourir récursivement
+            text_extracted = []
+            
+            def extract_from_component(comp):
+                """Extrait texte et médias d'un composant de manière récursive."""
+                # Extraction de texte
+                if isinstance(comp, discord.ui.TextInput):
+                    if comp.value:
+                        text_extracted.append(comp.value)
+                elif isinstance(comp, discord.ui.TextDisplay):
+                    if comp.content:
+                        text_extracted.append(comp.content)
+                
+                # Extraction de médias
+                elif isinstance(comp, discord.ui.Thumbnail):
+                    if comp.media and comp.media.url:
+                        components.append(ImageURLComponent(comp.media.url, detail='auto'))
+                elif isinstance(comp, discord.ui.MediaGallery):
+                    for media_item in comp.items:
+                        if media_item.media and media_item.media.url:
+                            components.append(ImageURLComponent(media_item.media.url, detail='auto'))
+                elif isinstance(comp, discord.ui.File):
+                    if comp.media and comp.media.url:
+                        # Déterminer le type de média basé sur content_type si disponible
+                        if hasattr(comp.media, 'content_type') and comp.media.content_type:
+                            if comp.media.content_type.startswith('image/'):
+                                components.append(ImageURLComponent(comp.media.url, detail='auto'))
+                        else:
+                            # Fallback sur l'extension de fichier
+                            url_lower = comp.media.url.lower()
+                            if any(url_lower.endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.gif', '.webp']):
+                                components.append(ImageURLComponent(comp.media.url, detail='auto'))
+            
+            # Traitement des LayoutView v2 (nouveaux composants Discord)
+            try:
+                # Vérifier si le message a des composants v2
+                if hasattr(message, 'flags') and message.flags.components_v2:
+                    # Convertir les composants du message en LayoutView pour accéder aux composants v2
+                    layout_view = discord.ui.LayoutView.from_message(message)
+                    
+                    # Parcourir tous les composants du LayoutView
+                    if hasattr(layout_view, 'walk_children'):
+                        for child in layout_view.walk_children():
+                            extract_from_component(child)
+                    elif hasattr(layout_view, 'children'):
+                        for child in layout_view.children:
+                            extract_from_component(child)
+                            if hasattr(child, 'walk_children'):
+                                for grandchild in child.walk_children():
+                                    extract_from_component(grandchild)
+                            elif hasattr(child, 'children'):
+                                for grandchild in child.children:
+                                    extract_from_component(grandchild)
+            except Exception as e:
+                # En cas d'erreur lors de la conversion LayoutView, continuer avec les composants classiques
+                print(f"Erreur lors de l'extraction LayoutView: {e}")
+                
+            if text_extracted:
+                components.append(MetadataTextComponent('VIEW', content=' | '.join(text_extracted)))
                 
         # Attachments
         if include_attachments:
@@ -319,8 +381,24 @@ class UserMessage(ContextMessage):
                         attachments.append(AudioAttachment(attachment))
                     elif attachment.content_type.startswith('video/'):
                         attachments.append(VideoAttachment(attachment))
-                    # elif attachment.content_type.startswith('text/'):
-                        # attachments.append(TextFileAttachment(attachment))
+                    elif attachment.content_type.startswith('text/'):
+                        attachments.append(TextFileAttachment(attachment))
+                    else:
+                        # Vérification par extension de fichier si content_type n'est pas spécifique
+                        filename_lower = attachment.filename.lower()
+                        if filename_lower.endswith(('.txt', '.md', '.py', '.js', '.html', '.css', '.json', '.xml', '.csv', '.log')):
+                            attachments.append(TextFileAttachment(attachment))
+                else:
+                    # Fallback si pas de content_type : vérification par extension
+                    filename_lower = attachment.filename.lower()
+                    if filename_lower.endswith(('.txt', '.md', '.py', '.js', '.html', '.css', '.json', '.xml', '.csv', '.log')):
+                        attachments.append(TextFileAttachment(attachment))
+                    elif filename_lower.endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp')):
+                        components.append(ImageURLComponent(attachment.url, detail='auto'))
+                    elif filename_lower.endswith(('.mp3', '.wav', '.ogg', '.m4a', '.flac')):
+                        attachments.append(AudioAttachment(attachment))
+                    elif filename_lower.endswith(('.mp4', '.avi', '.mov', '.webm', '.mkv')):
+                        attachments.append(VideoAttachment(attachment))
             
         # Stickers
         if include_stickers:
