@@ -167,7 +167,7 @@ class ChannelChatSession:
             # Si le message vient du bot, on dit juste référence au bot
             if message.reference.resolved.author.id == self.cog.bot.user.id:
                 ctx_message = UserMessage.from_discord_message(message)
-                start = message.reference.resolved.content[:50].replace('\n', ' ')
+                start = message.reference.resolved.content[:100].replace('\n', ' ')
                 ctx_message.add_components(MetadataTextComponent('REFERENCE', yourself=True, starting_with=start))
                 return self.agent.create_insert_group(ctx_message)
             else:
