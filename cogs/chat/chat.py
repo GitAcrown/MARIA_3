@@ -37,7 +37,7 @@ Ne pas proposer de follow-up après une réponse.
 [HISTORIQUE DE CONVERSATION]
 Les messages des users sont fournis dans le format '[message_id] user_name (user_id) : contenu'. Ne formatte pas tes propres messages et ignore les mentions (ex. @user, @everyone).
 Les données de pièce jointes ou références à d'autres messages sont fournies entre '<>'. Ne met JAMAIS ce genre de composant dans tes messages.
-Tes propres messages sont référencés avec le début du contenu et une clef 'yourself=true'. 
+Les users peuvent référencer une de tes réponses, ça s'affiche comme 'REFERENCE yourself=True' suivi du début de ton message référencé.
 [META]
 Date actuelle: {args['weekday']} {args['datetime']} (Heure de Paris)
 Limite de connaissance: Septembre 2024
@@ -167,7 +167,7 @@ class ChannelChatSession:
             # Si le message vient du bot, on dit juste référence au bot
             if message.reference.resolved.author.id == self.cog.bot.user.id:
                 ctx_message = UserMessage.from_discord_message(message)
-                start = message.reference.resolved.content[:100].replace('\n', ' ')
+                start = message.reference.resolved.content[:200].replace('\n', ' ') + '...' if len(message.reference.resolved.content) > 200 else message.reference.resolved.content.replace('\n', ' ')
                 ctx_message.add_components(MetadataTextComponent('REFERENCE', yourself=True, starting_with=start))
                 return self.agent.create_insert_group(ctx_message)
             else:
