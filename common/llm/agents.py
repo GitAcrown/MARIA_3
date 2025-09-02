@@ -69,7 +69,8 @@ class OpenAIError(GPTWrapperError):
 class ChatbotAgent:
     def __init__(self,
                  client: AsyncOpenAI,
-                 developer_prompt: str,
+                 developer_prompt_template: Callable[[dict], str],
+                 developer_prompt_args: dict = None,
                  *,
                  completion_model: str = MAIN_COMPLETION_MODEL,
                  transcription_model: str = MAIN_TRANSCRIPTION_MODEL,
@@ -84,7 +85,8 @@ class ChatbotAgent:
         self.client = client
         
         # Paramètres de l'agent
-        self.developer_prompt = developer_prompt
+        self.developer_prompt_template = developer_prompt_template
+        self.developer_prompt_args = developer_prompt_args if developer_prompt_args else {}
         self.completion_model = completion_model
         self.transcription_model = transcription_model
         self.max_completion_tokens = max_completion_tokens
@@ -111,7 +113,7 @@ class ChatbotAgent:
     @property
     def developer_message(self) -> DeveloperMessage:
         """Retourne le message du développeur de l'agent."""
-        return DeveloperMessage(self.developer_prompt, created_at=datetime.now(PARIS_TZ))
+        return DeveloperMessage(self.developer_prompt_template(self.developer_prompt_args), created_at=datetime.now(PARIS_TZ))
     
     def get_groups(self, filter: Callable[[MessageGroup], bool] = lambda _: True) -> list[MessageGroup]:
         """Retourne les groupes de messages de l'historique."""

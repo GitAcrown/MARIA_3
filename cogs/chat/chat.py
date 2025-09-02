@@ -380,15 +380,16 @@ class Chat(commands.Cog):
         """Récupère ou crée une session de chat pour un canal."""
         if channel.id not in self._SESSIONS:
             # Crée un agent de chat
-            dev_prompt = DEVELOPER_PROMPT_TEMPLATE({
+            dev_args = {
                 'weekday': datetime.now(PARIS_TZ).strftime('%A'),
-                'datetime': datetime.now(PARIS_TZ).strftime('%Y-%m-%d %H:%M:%S')
-            })
+                'datetime': datetime.now(PARIS_TZ).strftime('%Y-%m-%d %H:%M:%S'),
+            }
             self.populate_tools()
             
             agent = ChatbotAgent(
                 client=self._gptclient,
-                developer_prompt=dev_prompt,
+                developer_prompt_template=DEVELOPER_PROMPT_TEMPLATE,
+                developer_prompt_args=dev_args,
                 tools=self.GLOBAL_TOOLS
             )
         
